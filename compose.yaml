@@ -1,0 +1,40 @@
+# MCP only. The Nemotron model is already running elsewhere.
+# The image has no .env. Compose reads .env on the host and injects values at start.
+services:
+  mcp:
+    build: .
+    image: nemotron-transcribe-mcp:0.1.0
+    env_file:
+      - .env
+    environment:
+      # Fail fast if the model URL is missing from .env
+      NEMOTRON_BASE_URL: ${NEMOTRON_BASE_URL:?Set NEMOTRON_BASE_URL in .env}
+      MCP_TRANSPORT: http
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: ${MCP_PORT:-8080}
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:?Set MCP_AUTH_TOKEN in .env}
+      AUDIO_ROOT: /data/audio
+      WORK_ROOT: /data/work
+    extra_hosts:
+      # Linux: let the container reach a model on the Docker host
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./audio:/data/audio:ro
+      - ./work:/data/work
+    ports:
+      # host port : container port (defaults 8083:8080 on this Spark)
+      - "127.0.0.1:${MCP_HOST_PORT:-8083}:${MCP_PORT:-8080}"
+    mem_limit: 2g
+    healthcheck:
+      # Runs inside the container (no auth on /healthz)
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ.get('MCP_PORT', '8080'))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s

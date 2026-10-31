@@ -38,8 +38,33 @@ from nemotron_transcribe_mcp.youtube import download_youtube, resolve_audio
 log = get_logger("server")
 
 
-def jobs_db_path() -> Path:
+def jobs_db_path(work_root: str = "") -> Path:
+    if work_root:
+        root = Path(work_root)
+        root.mkdir(parents=True, exist_ok=True)
+        return root / "jobs.db"
     return Path(user_data_dir("nemotron-transcribe-mcp", ensure_exists=True)) / "jobs.db"
+
+
+def _bearer_app(app, token: str):
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+
+    class BearerGate(BaseHTTPMiddleware):
+        def __init__(self, asgi_app, expected: str) -> None:
+            super().__init__(asgi_app)
+            self.expected = expected
+
+        async def dispatch(self, request: Request, call_next):
+            if request.url.path == "/healthz":
+                return await call_next(request)
+            header = request.headers.get("authorization", "")
+            if header != f"Bearer {self.expected}":
+                return JSONResponse({"error": "unauthorized"}, status_code=401)
+            return await call_next(request)
+
+    return BearerGate(app, token)
 
 
 def build_server(jobs: Jobs, config: Config, fetch_youtube=None) -> MCPServer:
@@ -350,7 +375,11 @@ def main() -> None:
         configure_logging("INFO")
         get_logger("server").error("config_invalid", message=str(exc))
         raise SystemExit(1) from exc
-    configure_logging(config.log_level, fmt=config.log_format, secrets=[config.api_key])
+    configure_logging(
+        config.log_level,
+        fmt=config.log_format,
+        secrets=[config.api_key, config.mcp_auth_token],
+    )
     log.info("server_started", host=urlparse(config.base_url).hostname or "")
 
     def prepare(path: Path, settings: dict[str, object], work: Path) -> None:
@@ -397,5 +426,31 @@ def main() -> None:
         except IncompleteTranscript as exc:
             raise RuntimeError(f"transcript was cut off: {exc.text}") from exc
 
-    jobs = Jobs(jobs_db_path(), plan=plan, transcribe_piece=piece, prepare=prepare)
-    build_server(jobs, config).run(transport="stdio")
+    jobs = Jobs(
+        jobs_db_path(config.work_root),
+        plan=plan,
+        transcribe_piece=piece,
+        prepare=prepare,
+    )
+    server = build_server(jobs, config)
+    if config.transport == "stdio":
+        server.run(transport="stdio")
+        return
+    _run_http(server, config)
+
+
+def _run_http(server: MCPServer, config: Config) -> None:
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+    import uvicorn
+
+    @server.custom_route("/healthz", methods=["GET"])
+    async def healthz(_request: Request) -> JSONResponse:
+        return JSONResponse({"status": "ok"})
+
+    app = _bearer_app(
+        server.streamable_http_app(streamable_http_path="/mcp", host=config.mcp_host),
+        config.mcp_auth_token,
+    )
+    log.info("http_listening", host=config.mcp_host, port=config.mcp_port)
+    uvicorn.run(app, host=config.mcp_host, port=config.mcp_port, log_level="warning")

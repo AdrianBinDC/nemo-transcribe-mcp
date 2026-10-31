@@ -1,8 +1,10 @@
 import os
+import sys
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import dotenv_values, find_dotenv
 from platformdirs import user_config_dir
@@ -14,6 +16,7 @@ DEFAULT_MODEL = "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4"
 
 
 LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR"}
+TRANSPORTS = {"stdio", "http"}
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,11 @@ class Config:
     log_format: str = "json"
     source_language: str = ""
     target_language: str = "en"
+    transport: str = "stdio"
+    mcp_host: str = "127.0.0.1"
+    mcp_port: int = 8080
+    mcp_auth_token: str = ""
+    work_root: str = ""
 
 
 def default_config_path() -> Path:
@@ -42,6 +50,18 @@ def _environment(environ: Mapping[str, str] | None) -> Mapping[str, str]:
         if value and not merged.get(key, "").strip():
             merged[key] = value
     return merged
+
+
+def _warn_docker_localhost(base_url: str) -> None:
+    if not Path("/.dockerenv").exists():
+        return
+    host = (urlparse(base_url).hostname or "").lower()
+    if host in {"localhost", "127.0.0.1", "::1"}:
+        print(
+            "warning: inside a container, localhost is the container itself, not your host. "
+            "Use host.docker.internal, a compose service name, or a LAN IP.",
+            file=sys.stderr,
+        )
 
 
 def load_config(
@@ -71,6 +91,7 @@ def load_config(
         raise ValueError(
             "NEMOTRON_BASE_URL is not set. Copy .env.example to .env and set the address of your Transcribe server."
         )
+    _warn_docker_localhost(base_url)
     log_level = pick("NEMOTRON_LOG_LEVEL", "log_level", "INFO").upper()
     if log_level not in LOG_LEVELS:
         raise ValueError("NEMOTRON_LOG_LEVEL must be DEBUG, INFO, WARNING, or ERROR.")
@@ -87,6 +108,23 @@ def load_config(
         target_language = language_code(raw_target)
     except ValueError:
         raise ValueError("NEMOTRON_TARGET_LANGUAGE must be a code from .env.example, such as en or th.") from None
+
+    transport = pick("MCP_TRANSPORT", "transport", "stdio").lower()
+    if transport not in TRANSPORTS:
+        raise ValueError("MCP_TRANSPORT must be stdio or http.")
+    mcp_host = pick("MCP_HOST", "mcp_host", "127.0.0.1")
+    raw_port = pick("MCP_PORT", "mcp_port", "8080")
+    try:
+        mcp_port = int(raw_port)
+        if mcp_port < 1 or mcp_port > 65535:
+            raise ValueError
+    except ValueError:
+        raise ValueError("MCP_PORT must be an integer from 1 to 65535.") from None
+    mcp_auth_token = pick("MCP_AUTH_TOKEN", "mcp_auth_token", "")
+    if transport == "http" and not mcp_auth_token:
+        raise ValueError("MCP_AUTH_TOKEN is required when MCP_TRANSPORT=http.")
+    work_root = pick("WORK_ROOT", "work_root", "")
+
     return Config(
         base_url=base_url,
         model=pick("NEMOTRON_MODEL", "model", DEFAULT_MODEL),
@@ -95,4 +133,9 @@ def load_config(
         log_format=log_format,
         source_language=source_language,
         target_language=target_language,
+        transport=transport,
+        mcp_host=mcp_host,
+        mcp_port=mcp_port,
+        mcp_auth_token=mcp_auth_token,
+        work_root=work_root,
     )

@@ -1,9 +1,19 @@
+import os
 import re
 from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from platformdirs import user_data_dir
+
+
+def _data_root() -> Path:
+    work = os.environ.get("WORK_ROOT", "").strip()
+    if work:
+        root = Path(work)
+        root.mkdir(parents=True, exist_ok=True)
+        return root
+    return Path(user_data_dir("nemotron-transcribe-mcp", ensure_exists=True))
 
 _HOSTS = {"youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
 _ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
@@ -42,7 +52,7 @@ def download_youtube(url: str) -> Path:
     found = video_id(url)
     if found is None:
         raise ValueError("This YouTube link has no video.")
-    folder = Path(user_data_dir("nemotron-transcribe-mcp", ensure_exists=True)) / "youtube" / found
+    folder = _data_root() / "youtube" / found
     folder.mkdir(parents=True, exist_ok=True)
     ready = sorted(folder.glob("audio.*"))
     if ready:

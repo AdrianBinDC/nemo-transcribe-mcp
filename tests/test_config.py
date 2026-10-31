@@ -160,3 +160,56 @@ def test_unset_path_reads_the_user_config_file(
     config = load_config({})
 
     assert config.base_url == "http://10.0.0.8:8010/v1"
+
+
+def test_transport_defaults_to_stdio(tmp_path: Path) -> None:
+    config = load_config(
+        {"NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1"},
+        path=tmp_path / "missing.toml",
+    )
+
+    assert config.transport == "stdio"
+    assert config.mcp_port == 8080
+    assert config.mcp_auth_token == ""
+
+
+def test_http_transport_requires_a_token(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="MCP_AUTH_TOKEN"):
+        load_config(
+            {
+                "NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1",
+                "MCP_TRANSPORT": "http",
+            },
+            path=tmp_path / "missing.toml",
+        )
+
+
+def test_http_transport_accepts_a_token_and_port(tmp_path: Path) -> None:
+    config = load_config(
+        {
+            "NEMOTRON_BASE_URL": "http://host.docker.internal:8010/v1",
+            "MCP_TRANSPORT": "http",
+            "MCP_AUTH_TOKEN": "secret",
+            "MCP_HOST": "0.0.0.0",
+            "MCP_PORT": "8080",
+            "WORK_ROOT": "/data/work",
+        },
+        path=tmp_path / "missing.toml",
+    )
+
+    assert config.transport == "http"
+    assert config.mcp_auth_token == "secret"
+    assert config.mcp_host == "0.0.0.0"
+    assert config.mcp_port == 8080
+    assert config.work_root == "/data/work"
+
+
+def test_bad_mcp_port_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="MCP_PORT"):
+        load_config(
+            {
+                "NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1",
+                "MCP_PORT": "nope",
+            },
+            path=tmp_path / "missing.toml",
+        )

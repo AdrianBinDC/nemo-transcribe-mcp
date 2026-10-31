@@ -80,30 +80,72 @@ Supported, and fine-tuning can help.
 
 ## Requirements
 
-- Python 3.12 or newer
-- [uv](https://docs.astral.sh/uv/)
-- `ffmpeg` and `ffprobe` on your `PATH`
+- An already-running Nemotron 3.5 Transcribe endpoint (this repo does not start the model)
+- Docker Compose **or** Python 3.12+, [uv](https://docs.astral.sh/uv/), and `ffmpeg`/`ffprobe` on your `PATH`
 
-## Setup
+Settings live in `.env` (copy from `.env.example`). Names and defaults are documented there once. Compose and the app only read those names.
+
+## Docker (home)
+
+One path: Compose starts the MCP; Hermes connects over HTTP.
+
+1. Copy settings and edit them:
+
+```bash
+cp .env.example .env
+```
+
+Set at least:
+
+- `NEMOTRON_BASE_URL=http://host.docker.internal:8010/v1` (model on the same machine; use `127.0.0.1` only without Docker)
+- `MCP_AUTH_TOKEN=` to a long random string
+
+`.env` is **not** copied into the image. Compose reads it on the host and injects the values when the container starts (`env_file` in `compose.yaml`).
+
+2. Start / stop:
+
+```bash
+docker compose up -d --build
+docker compose logs -f mcp
+docker compose down
+```
+
+Image name: `nemotron-transcribe-mcp:0.1.0`. MCP listens inside the container on port `8080` and is published on the host as `127.0.0.1:8083` by default (`MCP_HOST_PORT`).
+
+3. Hermes (`~/.hermes/config.yaml`):
+
+```yaml
+mcp_servers:
+  nemotron-transcribe:
+    url: "http://127.0.0.1:8083/mcp"
+    headers:
+      Authorization: "Bearer YOUR_TOKEN_FROM_ENV"
+    timeout: 300
+    connect_timeout: 60
+```
+
+4. Audio: put files in `./audio` on the host. Ask Hermes to use `/data/audio/your-file.m4a` (that is the path inside the container).
+
+5. If the MCP cannot reach the model: inside Docker, `localhost` means the container. Prefer `host.docker.internal` for a model on the same host.
+
+Check the process is up: `curl -s http://127.0.0.1:8083/healthz`
+
+## Without Docker
 
 ```bash
 uv sync
 cp .env.example .env
 ```
 
-Edit `.env` and set `NEMOTRON_BASE_URL` to your server. The value includes `/v1`, for example `http://127.0.0.1:8000/v1`. `.env` stays on your machine.
-
-Settings are read in this order: environment variables, then `.env` in the working directory, then `~/.config/nemotron-transcribe-mcp/config.toml`. If the base URL is still missing, the server exits and tells you to set it.
-
-## Run
+Edit `.env` and set `NEMOTRON_BASE_URL` (for a local process, `http://127.0.0.1:8010/v1` is fine). Leave `MCP_TRANSPORT=stdio`.
 
 ```bash
 uv run nemotron-transcribe-mcp
 ```
 
-With no arguments this is an MCP server on stdio. Log lines go to stderr. `NEMOTRON_LOG_LEVEL` in `.env` sets how much is written. The default format is one JSON object per line, so `docker logs` stays readable. Set `NEMOTRON_LOG_FORMAT=text` for a plain line in a terminal.
+Log lines go to stderr. Default format is one JSON object per line. Set `NEMOTRON_LOG_FORMAT=text` for a plain line in a terminal.
 
-A Cursor project can launch it from this directory:
+Cursor can launch it from this directory:
 
 ```json
 {
