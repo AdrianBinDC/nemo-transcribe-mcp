@@ -1,0 +1,81 @@
+# Copied from the model card. languages.py still decides which pairs are allowed.
+languages:
+  - {code: ar, name: Arabic, level: supported, identify: "yes", translate: "yes"}
+  - {code: bn, name: Bengali, level: supported, identify: "no", translate: "no"}
+  - {code: bg, name: Bulgarian, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: zh, name: Chinese, level: supported, identify: "yes", translate: "yes"}
+  - {code: hr, name: Croatian, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: cs, name: Czech, level: leading, identify: "yes", translate: "yes"}
+  - {code: da, name: Danish, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: nl, name: Dutch, level: leading, identify: "yes", translate: "yes"}
+  - {code: en, name: English, level: leading, identify: "yes", translate: "yes"}
+  - {code: et, name: Estonian, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: fi, name: Finnish, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: fr, name: French, level: leading, identify: "yes", translate: "yes"}
+  - {code: de, name: German, level: leading, identify: "yes", translate: "yes"}
+  - {code: el, name: Greek, level: supported, identify: "yes", translate: "yes"}
+  - {code: he, name: Hebrew, level: supported, identify: "yes", translate: "yes"}
+  - {code: hi, name: Hindi, level: leading, identify: "yes", translate: "yes"}
+  - {code: hu, name: Hungarian, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: id, name: Indonesian, level: supported, identify: "yes", translate: "no"}
+  - {code: it, name: Italian, level: leading, identify: "yes", translate: "yes"}
+  - {code: ja, name: Japanese, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: ko, name: Korean, level: leading, identify: "yes", translate: "yes"}
+  - {code: lv, name: Latvian, level: production_ready, identify: "low", translate: "yes"}
+  - {code: lt, name: Lithuanian, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: mt, name: Maltese, level: supported, identify: "yes", translate: "yes"}
+  - {code: mr, name: Marathi, level: supported, identify: "no", translate: "no"}
+  - {code: "no", name: Norwegian, level: supported, identify: "no", translate: "no"}
+  - {code: pl, name: Polish, level: leading, identify: "yes", translate: "yes"}
+  - {code: pt, name: Portuguese, level: leading, identify: "yes", translate: "yes"}
+  - {code: ro, name: Romanian, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: ru, name: Russian, level: leading, identify: "yes", translate: "yes"}
+  - {code: sk, name: Slovak, level: leading, identify: "yes", translate: "yes"}
+  - {code: sl, name: Slovenian, level: production_ready, identify: "low", translate: "yes"}
+  - {code: es, name: Spanish, level: leading, identify: "yes", translate: "yes"}
+  - {code: sv, name: Swedish, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: tl, name: Tagalog, level: supported, identify: "yes", translate: "no"}
+  - {code: ta, name: Tamil, level: supported, identify: "no", translate: "no"}
+  - {code: te, name: Telugu, level: supported, identify: "no", translate: "no"}
+  - {code: th, name: Thai, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: tr, name: Turkish, level: production_ready, identify: "yes", translate: "no"}
+  - {code: uk, name: Ukrainian, level: production_ready, identify: "yes", translate: "yes"}
+  - {code: vi, name: Vietnamese, level: supported, identify: "yes", translate: "no"}
+
+locales:
+  ar_eg: Arabic
+  bg_bg: Bulgarian
+  cmn_hans_cn: Chinese
+  hr_hr: Croatian
+  cs_cz: Czech
+  da_dk: Danish
+  nl_nl: Dutch
+  en_us: English
+  et_ee: Estonian
+  fil_ph: Filipino
+  fi_fi: Finnish
+  fr_fr: French
+  de_de: German
+  el_gr: Greek
+  he_il: Hebrew
+  hi_in: Hindi
+  hu_hu: Hungarian
+  id_id: Indonesian
+  it_it: Italian
+  ja_jp: Japanese
+  ko_kr: Korean
+  lv_lv: Latvian
+  lt_lt: Lithuanian
+  mt_mt: Maltese
+  pl_pl: Polish
+  pt_br: Portuguese
+  ro_ro: Romanian
+  ru_ru: Russian
+  sk_sk: Slovak
+  sl_si: Slovenian
+  es_419: Spanish
+  sv_se: Swedish
+  th_th: Thai
+  tr_tr: Turkish
+  uk_ua: Ukrainian
+  vi_vn: Vietnamese

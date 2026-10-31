@@ -1,37 +1,35 @@
-_TRANSLATION = {
-    "ar": "Arabic",
-    "bg": "Bulgarian",
-    "zh": "Chinese",
-    "hr": "Croatian",
-    "cs": "Czech",
-    "da": "Danish",
-    "nl": "Dutch",
-    "et": "Estonian",
-    "fi": "Finnish",
-    "fr": "French",
-    "de": "German",
-    "el": "Greek",
-    "he": "Hebrew",
-    "hi": "Hindi",
-    "hu": "Hungarian",
-    "it": "Italian",
-    "ja": "Japanese",
-    "ko": "Korean",
-    "lv": "Latvian",
-    "lt": "Lithuanian",
-    "mt": "Maltese",
-    "pl": "Polish",
-    "pt": "Portuguese",
-    "ro": "Romanian",
-    "ru": "Russian",
-    "sk": "Slovak",
-    "sl": "Slovenian",
-    "es": "Spanish",
-    "sv": "Swedish",
-    "th": "Thai",
-    "uk": "Ukrainian",
-}
+from importlib.resources import files
 
+import yaml
+
+
+def _load_rows() -> tuple[list[dict[str, str]], dict[str, str]]:
+    raw = files("nemotron_transcribe_mcp").joinpath("languages.yaml").read_text(encoding="utf-8")
+    loaded = yaml.safe_load(raw)
+    if not isinstance(loaded, dict):
+        raise TypeError("languages.yaml is not a language list")
+    rows = loaded.get("languages")
+    locales = loaded.get("locales")
+    if not isinstance(rows, list) or not isinstance(locales, dict):
+        raise TypeError("languages.yaml is not a language list")
+    cleaned: list[dict[str, str]] = []
+    for row in rows:
+        cleaned.append(
+            {
+                "code": str(row["code"]),
+                "name": str(row["name"]),
+                "level": str(row["level"]),
+                "identify": str(row["identify"]),
+                "translate": str(row["translate"]),
+            }
+        )
+    return cleaned, {str(code): str(name) for code, name in locales.items()}
+
+
+_ROWS, _LOCALES = _load_rows()
+_TRANSLATION = {
+    row["code"]: row["name"] for row in _ROWS if row["translate"] == "yes" and row["code"] != "en"
+}
 _BY_KEY = {code: name for code, name in _TRANSLATION.items()}
 _BY_KEY.update({name.lower(): name for name in _TRANSLATION.values()})
 _BY_KEY.update({"en": "English", "english": "English"})
@@ -39,67 +37,22 @@ _CODE_BY_NAME = {name.lower(): code for code, name in _TRANSLATION.items()}
 _CODE_BY_NAME["en"] = "en"
 _CODE_BY_NAME["english"] = "en"
 _CODE_BY_NAME.update(_TRANSLATION)
-
-# Card tiers. identify is yes, low, or no.
-_SUPPORT = (
-    ("ar", "Arabic", "supported", "yes"),
-    ("bn", "Bengali", "supported", "no"),
-    ("bg", "Bulgarian", "production_ready", "yes"),
-    ("zh", "Chinese", "supported", "yes"),
-    ("hr", "Croatian", "production_ready", "yes"),
-    ("cs", "Czech", "leading", "yes"),
-    ("da", "Danish", "production_ready", "yes"),
-    ("nl", "Dutch", "leading", "yes"),
-    ("en", "English", "leading", "yes"),
-    ("et", "Estonian", "production_ready", "yes"),
-    ("fi", "Finnish", "production_ready", "yes"),
-    ("fr", "French", "leading", "yes"),
-    ("de", "German", "leading", "yes"),
-    ("el", "Greek", "supported", "yes"),
-    ("he", "Hebrew", "supported", "yes"),
-    ("hi", "Hindi", "leading", "yes"),
-    ("hu", "Hungarian", "production_ready", "yes"),
-    ("id", "Indonesian", "supported", "yes"),
-    ("it", "Italian", "leading", "yes"),
-    ("ja", "Japanese", "production_ready", "yes"),
-    ("ko", "Korean", "leading", "yes"),
-    ("lv", "Latvian", "production_ready", "low"),
-    ("lt", "Lithuanian", "production_ready", "yes"),
-    ("mt", "Maltese", "supported", "yes"),
-    ("mr", "Marathi", "supported", "no"),
-    ("no", "Norwegian", "supported", "no"),
-    ("pl", "Polish", "leading", "yes"),
-    ("pt", "Portuguese", "leading", "yes"),
-    ("ro", "Romanian", "production_ready", "yes"),
-    ("ru", "Russian", "leading", "yes"),
-    ("sk", "Slovak", "leading", "yes"),
-    ("sl", "Slovenian", "production_ready", "low"),
-    ("es", "Spanish", "leading", "yes"),
-    ("sv", "Swedish", "production_ready", "yes"),
-    ("tl", "Tagalog", "supported", "yes"),
-    ("ta", "Tamil", "supported", "no"),
-    ("te", "Telugu", "supported", "no"),
-    ("th", "Thai", "production_ready", "yes"),
-    ("tr", "Turkish", "production_ready", "yes"),
-    ("uk", "Ukrainian", "production_ready", "yes"),
-    ("vi", "Vietnamese", "supported", "yes"),
-)
+_LOW_NAMES = {row["name"] for row in _ROWS if row["identify"] == "low"}
+_LOW_CONFIDENCE = {row["code"] for row in _ROWS if row["identify"] == "low"}
+_LOW_CONFIDENCE.update(code for code, name in _LOCALES.items() if name in _LOW_NAMES)
 
 
 def supported_languages() -> list[dict[str, str]]:
     return [
         {
-            "code": code,
-            "name": name,
-            "level": level,
-            "translate": "yes" if code == "en" or code in _TRANSLATION else "no",
-            "identify": identify,
+            "code": row["code"],
+            "name": row["name"],
+            "level": row["level"],
+            "translate": row["translate"],
+            "identify": row["identify"],
         }
-        for code, name, level, identify in _SUPPORT
+        for row in _ROWS
     ]
-
-
-_LOW_CONFIDENCE = {"lv", "lv_lv", "sl", "sl_si"}
 
 
 def language_id_note(text: str) -> str:
@@ -110,50 +63,10 @@ def language_id_note(text: str) -> str:
     return stripped
 
 
-_LOCALE = {
-    "ar_eg": "Arabic",
-    "bg_bg": "Bulgarian",
-    "cmn_hans_cn": "Chinese",
-    "hr_hr": "Croatian",
-    "cs_cz": "Czech",
-    "da_dk": "Danish",
-    "nl_nl": "Dutch",
-    "en_us": "English",
-    "et_ee": "Estonian",
-    "fil_ph": "Filipino",
-    "fi_fi": "Finnish",
-    "fr_fr": "French",
-    "de_de": "German",
-    "el_gr": "Greek",
-    "he_il": "Hebrew",
-    "hi_in": "Hindi",
-    "hu_hu": "Hungarian",
-    "id_id": "Indonesian",
-    "it_it": "Italian",
-    "ja_jp": "Japanese",
-    "ko_kr": "Korean",
-    "lv_lv": "Latvian",
-    "lt_lt": "Lithuanian",
-    "mt_mt": "Maltese",
-    "pl_pl": "Polish",
-    "pt_br": "Portuguese",
-    "ro_ro": "Romanian",
-    "ru_ru": "Russian",
-    "sk_sk": "Slovak",
-    "sl_si": "Slovenian",
-    "es_419": "Spanish",
-    "sv_se": "Swedish",
-    "th_th": "Thai",
-    "tr_tr": "Turkish",
-    "uk_ua": "Ukrainian",
-    "vi_vn": "Vietnamese",
-}
-
-
 def language_from_label(label: str) -> str:
     token = label.strip().splitlines()[0].split()[0].lower()
-    if token in _LOCALE:
-        return _LOCALE[token]
+    if token in _LOCALES:
+        return _LOCALES[token]
     found = _BY_KEY.get(token)
     if found is None:
         raise ValueError(f"{token} is not a supported translation language")
