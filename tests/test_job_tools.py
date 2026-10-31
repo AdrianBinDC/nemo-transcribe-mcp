@@ -135,6 +135,54 @@ async def test_speakers_with_technical_style_is_rejected(tmp_path: Path) -> None
 
 
 @pytest.mark.anyio
+async def test_translate_to_french_does_not_reuse_a_transcript(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    seen: list[dict[str, object]] = []
+
+    def piece(path, settings, start, end, cancelled, work) -> str:
+        seen.append(settings)
+        return str(settings["style"])
+
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=piece,
+    )
+    server = build_server(jobs, _config())
+
+    words = await server.call_tool("transcribe", {"path": str(audio), "wait_seconds": 2})
+    french = await server.call_tool(
+        "translate",
+        {"path": str(audio), "target_language": "fr", "wait_seconds": 2},
+    )
+
+    assert _text(words) == "verbatim"
+    assert _text(french) == "translation"
+    assert seen[1]["target_language"] == "French"
+    assert seen[1]["prompt"] == "Please translate the given speech to French."
+    jobs.close()
+
+
+@pytest.mark.anyio
+async def test_translate_rejects_two_non_english_languages(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=lambda path, settings, start, end, cancelled, work: "nope",
+    )
+    server = build_server(jobs, _config())
+
+    with pytest.raises(Exception) as raised:
+        await server.call_tool(
+            "translate",
+            {"path": str(audio), "target_language": "French", "source_language": "German", "wait_seconds": 2},
+        )
+    assert str(raised.value.__cause__) == "one side must be English"
+    jobs.close()
+
+
+@pytest.mark.anyio
 async def test_a_fast_file_returns_the_words(tmp_path: Path) -> None:
     audio = _audio(tmp_path)
     jobs = Jobs(

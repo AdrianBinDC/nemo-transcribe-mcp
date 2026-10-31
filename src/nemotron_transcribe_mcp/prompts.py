@@ -24,3 +24,7 @@ def prompt_for(style: str) -> str:
 
 def verbatim_prompt() -> str:
     return prompt_for("verbatim")
+
+
+def translation_prompt(target_language: str) -> str:
+    return prompt_for("translation").format(target_language=target_language)

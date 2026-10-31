@@ -56,7 +56,7 @@ async def test_server_offers_a_transcribe_tool(tmp_path: Path) -> None:
                 listed = await session.list_tools()
 
     names = {item.name for item in listed.tools}
-    assert names >= {"transcribe", "get_job_status", "get_job_result", "list_jobs", "cancel_job"}
+    assert names >= {"transcribe", "translate", "get_job_status", "get_job_result", "list_jobs", "cancel_job"}
     tool = next(item for item in listed.tools if item.name == "transcribe")
     description = (tool.description or "").lower()
     assert "audio" in description

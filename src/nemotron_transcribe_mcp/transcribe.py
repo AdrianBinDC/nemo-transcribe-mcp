@@ -63,6 +63,7 @@ def _post_transcript(
     wav: bytes,
     duration_s: float,
     style: str,
+    prompt: str | None = None,
 ) -> str:
     payload = {
         "model": config.model,
@@ -70,7 +71,7 @@ def _post_transcript(
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt_for(style)},
+                    {"type": "text", "text": prompt if prompt is not None else prompt_for(style)},
                     {
                         "type": "audio_url",
                         "audio_url": {
@@ -112,6 +113,7 @@ def _transcribe_span(
     *,
     can_split: bool,
     style: str,
+    prompt: str | None = None,
 ) -> str:
     dest = work / f"{label}.wav"
     slice_pcm(source, dest, start_s, end_s)
@@ -126,6 +128,7 @@ def _transcribe_span(
             dest.read_bytes(),
             audio_s,
             style,
+            prompt,
         )
     except IncompleteTranscript:
         log.warning("request_cut_off", audio_s=round(audio_s, 3))
@@ -144,6 +147,7 @@ def _transcribe_span(
             f"{label}a",
             can_split=False,
             style=style,
+            prompt=prompt,
         )
         right = _transcribe_span(
             client,
@@ -157,6 +161,7 @@ def _transcribe_span(
             f"{label}b",
             can_split=False,
             style=style,
+            prompt=prompt,
         )
         return stitch_transcripts([left, right])
     log.info(
@@ -198,6 +203,7 @@ def transcribe_prepared_span(
     config: Config,
     cancelled: threading.Event,
     style: str = "verbatim",
+    prompt: str | None = None,
 ) -> str:
     if cancelled.is_set():
         raise RuntimeError("aborted")
@@ -232,6 +238,7 @@ def transcribe_prepared_span(
                 label,
                 can_split=True,
                 style=style,
+                prompt=prompt,
             )
         except Exception:
             if cancelled.is_set():
@@ -249,6 +256,7 @@ def transcribe_file(
     hard_max_s: float = HARD_MAX_S,
     speakers: bool = False,
     style: str = "verbatim",
+    prompt: str | None = None,
 ) -> str:
     headers: dict[str, str] = {}
     if config.api_key:
@@ -272,6 +280,7 @@ def transcribe_file(
                     f"piece{index}",
                     can_split=True,
                     style=style,
+                    prompt=prompt,
                 )
                 for index, (start_s, end_s) in enumerate(spans)
             ]

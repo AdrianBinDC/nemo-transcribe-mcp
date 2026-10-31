@@ -9,3 +9,5 @@ templates:
     user: "Transcribe as a clean written transcript. Preserve exact values and punctuation/separators in emails, URLs, file paths, commands, and identifiers. Use conventional written forms."
   - id: raw_dictation
     user: "Transcribe word for word without punctuation. Write numbers as spoken words and keep individually spoken letters separate."
+  - id: translation
+    user: "Please translate the given speech to {target_language}."

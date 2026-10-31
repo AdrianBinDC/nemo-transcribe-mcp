@@ -1,4 +1,4 @@
-from nemotron_transcribe_mcp.prompts import prompt_for, verbatim_prompt
+from nemotron_transcribe_mcp.prompts import prompt_for, translation_prompt, verbatim_prompt
 
 CARD_VERBATIM = (
     "Audio transcription. Language: as spoken. "
@@ -40,3 +40,7 @@ def test_technical_prompt_matches_the_model_card() -> None:
 
 def test_raw_dictation_prompt_matches_the_model_card() -> None:
     assert prompt_for("raw_dictation") == CARD_RAW
+
+
+def test_translation_prompt_names_the_target_language() -> None:
+    assert translation_prompt("French") == "Please translate the given speech to French."

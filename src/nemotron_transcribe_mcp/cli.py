@@ -8,8 +8,9 @@ from platformdirs import user_data_dir
 
 from nemotron_transcribe_mcp.config import Config, default_config_path, load_config
 from nemotron_transcribe_mcp.jobs import Jobs
+from nemotron_transcribe_mcp.languages import translation_pair
 from nemotron_transcribe_mcp.logsetup import configure_logging, get_logger
-from nemotron_transcribe_mcp.prompts import prompt_for, prompts_version
+from nemotron_transcribe_mcp.prompts import prompt_for, prompts_version, translation_prompt
 from nemotron_transcribe_mcp.setupcheck import run_doctor, run_init
 from nemotron_transcribe_mcp.transcribe import (
     IncompleteTranscript,
@@ -30,6 +31,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
         instructions=(
             "Talks to an already-running Nemotron 3.5 Transcribe endpoint. "
             "Does not start the model. Use transcribe for one audio file. "
+            "Use translate to turn speech into another language. One side must be English. "
             "A long file returns a job id. Call get_job_status, then get_job_result. "
             "Do not poll in a loop."
         ),
@@ -73,6 +75,49 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
             outcome = jobs.transcribe(
                 Path(path).expanduser(),
                 settings(speakers, style),
+                wait_seconds=wait_seconds,
+            )
+        except IncompleteTranscript as exc:
+            raise RuntimeError(f"transcript was cut off: {exc.text}") from exc
+        if isinstance(outcome, str):
+            return outcome
+        if outcome.get("state") == "failed":
+            raise RuntimeError(str(jobs.result(str(outcome["job_id"]))))
+        return json.dumps(outcome)
+
+    @server.tool(
+        description=(
+            "Translate speech in one audio file into another language. "
+            "One side must be English. "
+            "Pass target_language as a name or a code, such as French or fr. "
+            "source_language defaults to English. "
+            "A long file is cut at a pause and sent one piece at a time. "
+            "Waits wait_seconds (default 25). If it is still running, returns a job id. "
+            "Tell the user, then call get_job_status. Do not poll in a loop."
+        ),
+        structured_output=False,
+    )
+    def translate(
+        path: str,
+        target_language: str,
+        source_language: str = "English",
+        wait_seconds: float = 25,
+    ) -> str:
+        if wait_seconds < 0:
+            raise ValueError("wait_seconds must be 0 or more")
+        source_name, target_name = translation_pair(target_language, source_language)
+        try:
+            outcome = jobs.transcribe(
+                Path(path).expanduser(),
+                {
+                    "speakers": 0,
+                    "style": "translation",
+                    "source_language": source_name,
+                    "target_language": target_name,
+                    "prompt": translation_prompt(target_name),
+                    "model": config.model,
+                    "prompts_version": prompts_version(),
+                },
                 wait_seconds=wait_seconds,
             )
         except IncompleteTranscript as exc:
@@ -163,6 +208,7 @@ def main() -> None:
                 config=config,
                 cancelled=cancelled,
                 style=str(settings.get("style", "verbatim")),
+                prompt=settings.get("prompt") if isinstance(settings.get("prompt"), str) else None,
             )
         except IncompleteTranscript as exc:
             raise RuntimeError(f"transcript was cut off: {exc.text}") from exc

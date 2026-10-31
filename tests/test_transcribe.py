@@ -167,6 +167,36 @@ def test_raw_dictation_asks_for_spoken_numbers_and_no_punctuation(tmp_path: Path
     )
 
 
+def test_a_translation_prompt_is_sent_unchanged(tmp_path: Path) -> None:
+    source = tmp_path / "note.wav"
+    _one_second_wav(source)
+    seen: dict[str, httpx.Request] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["request"] = request
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {"role": "assistant", "content": "Bonjour."},
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+        )
+
+    transcribe_file(
+        source,
+        config=SPARK,
+        transport=httpx.MockTransport(handler),
+        prompt="Please translate the given speech to French.",
+    )
+
+    body = json.loads(seen["request"].content)
+    assert body["messages"][0]["content"][0]["text"] == "Please translate the given speech to French."
+
+
 def test_length_finish_means_the_transcript_was_cut_off(tmp_path: Path) -> None:
     source = tmp_path / "note.wav"
     _one_second_wav(source)
