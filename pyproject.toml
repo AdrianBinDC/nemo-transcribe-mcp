@@ -1,0 +1,22 @@
+[project]
+name = "nemotron-transcribe-mcp"
+version = "0.1.0"
+description = "MCP client for an already-running Nemotron 3.5 Transcribe endpoint"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=2.3.0",
+    "platformdirs>=4",
+]
+
+[project.scripts]
+nemotron-transcribe-mcp = "nemotron_transcribe_mcp.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
