@@ -7,33 +7,33 @@ from urllib.parse import urlparse
 from mcp.server import MCPServer
 from platformdirs import user_data_dir
 
-from nemotron_transcribe_mcp.config import Config, default_config_path, load_config
-from nemotron_transcribe_mcp.jobs import Jobs
-from nemotron_transcribe_mcp.languages import (
+from nemo_transcribe_mcp.config import Config, default_config_path, load_config
+from nemo_transcribe_mcp.jobs import Jobs
+from nemo_transcribe_mcp.languages import (
     apply_detected_source,
     language_id_note,
     supported_languages,
     translation_name,
     translation_pair,
 )
-from nemotron_transcribe_mcp.logsetup import configure_logging, get_logger
-from nemotron_transcribe_mcp.prompts import (
+from nemo_transcribe_mcp.logsetup import configure_logging, get_logger
+from nemo_transcribe_mcp.prompts import (
     language_id_prompt,
     prompt_for,
     prompts_version,
     system_for,
     translation_prompt,
 )
-from nemotron_transcribe_mcp.setupcheck import run_doctor, run_init
-from nemotron_transcribe_mcp.tokens import question_span
-from nemotron_transcribe_mcp.transcribe import (
+from nemo_transcribe_mcp.setupcheck import run_doctor, run_init
+from nemo_transcribe_mcp.tokens import question_span
+from nemo_transcribe_mcp.transcribe import (
     IncompleteTranscript,
     media_duration_s,
     prepare_language_clip,
     prepare_pieces,
     transcribe_prepared_span,
 )
-from nemotron_transcribe_mcp.youtube import download_youtube, resolve_audio
+from nemo_transcribe_mcp.youtube import download_youtube, resolve_audio
 
 log = get_logger("server")
 
@@ -43,7 +43,7 @@ def jobs_db_path(work_root: str = "") -> Path:
         root = Path(work_root)
         root.mkdir(parents=True, exist_ok=True)
         return root / "jobs.db"
-    return Path(user_data_dir("nemotron-transcribe-mcp", ensure_exists=True)) / "jobs.db"
+    return Path(user_data_dir("nemo-transcribe-mcp", ensure_exists=True)) / "jobs.db"
 
 
 def _bearer_app(app, token: str):
@@ -74,7 +74,7 @@ def build_server(jobs: Jobs, config: Config, fetch_youtube=None) -> MCPServer:
         return resolve_audio(path, fetch)
 
     server = MCPServer(
-        name="nemotron-transcribe",
+        name="nemo-transcribe",
         instructions=(
             "Nemotron 3.5 Transcribe is already running. This server does not start the model. "
             "Pass a file path or a YouTube link. "

@@ -4,7 +4,7 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from nemotron_transcribe_mcp.cli import _bearer_app
+from nemo_transcribe_mcp.cli import _bearer_app
 
 
 @pytest.mark.anyio

@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from nemotron_transcribe_mcp.cli import build_server
-from nemotron_transcribe_mcp.config import Config
-from nemotron_transcribe_mcp.jobs import Jobs
-from nemotron_transcribe_mcp.youtube import resolve_audio, video_id
+from nemo_transcribe_mcp.cli import build_server
+from nemo_transcribe_mcp.config import Config
+from nemo_transcribe_mcp.jobs import Jobs
+from nemo_transcribe_mcp.youtube import resolve_audio, video_id
 
 _SHORT = "https://www.youtube.com/shorts/abcdefghijk"
 

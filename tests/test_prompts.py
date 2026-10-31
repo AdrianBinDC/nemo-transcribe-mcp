@@ -1,4 +1,4 @@
-from nemotron_transcribe_mcp.prompts import (
+from nemo_transcribe_mcp.prompts import (
     language_id_prompt,
     prompt_for,
     system_for,

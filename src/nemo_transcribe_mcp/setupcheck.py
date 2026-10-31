@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 import httpx
 
-from nemotron_transcribe_mcp.config import _environment
+from nemo_transcribe_mcp.config import _environment
 
 
 def list_model_ids(base_url: str) -> list[str]:
@@ -35,12 +35,12 @@ def ffmpeg_version() -> str | None:
 
 def cursor_install_line() -> str:
     raw = json.dumps(
-        {"command": "uvx", "args": ["nemotron-transcribe-mcp"]},
+        {"command": "uvx", "args": ["nemo-transcribe-mcp"]},
         separators=(",", ":"),
     ).encode()
     encoded = quote(base64.b64encode(raw).decode("ascii"), safe="")
     return (
-        f"cursor://anysphere.cursor-deeplink/mcp/install?name=nemotron-transcribe&config={encoded}"
+        f"cursor://anysphere.cursor-deeplink/mcp/install?name=nemo-transcribe&config={encoded}"
     )
 
 
@@ -95,14 +95,14 @@ def run_init(
     ffmpeg_version: Callable[[], str | None] = ffmpeg_version,
     environ: Mapping[str, str] | None = None,
 ) -> int:
-    parser = argparse.ArgumentParser(prog="nemotron-transcribe-mcp init")
+    parser = argparse.ArgumentParser(prog="nemo-transcribe-mcp init")
     parser.add_argument("--base-url")
     args = parser.parse_args(argv)
     urls = _urls(args.base_url, environ)
     found = _find(list_models, urls)
     if found is None:
         print("No Transcribe server found.")
-        print("Point at one: nemotron-transcribe-mcp init --base-url http://HOST:PORT/v1")
+        print("Point at one: nemo-transcribe-mcp init --base-url http://HOST:PORT/v1")
         return 1
     base_url, model = found
     _write_config(config_path, base_url, model)
@@ -136,7 +136,7 @@ def run_doctor(
         found = _find(list_models, _urls(None, environ))
         if found is None:
             print("endpoint unreachable")
-            print("Point at one: nemotron-transcribe-mcp init --base-url http://HOST:PORT/v1")
+            print("Point at one: nemo-transcribe-mcp init --base-url http://HOST:PORT/v1")
             return 1
         target = found[0]
     problems = 0

@@ -110,13 +110,13 @@ docker compose logs -f mcp
 docker compose down
 ```
 
-Image name: `nemotron-transcribe-mcp:0.1.0`. MCP listens inside the container on port `8080` and is published on the host as `127.0.0.1:8083` by default (`MCP_HOST_PORT`).
+Image name: `nemo-transcribe-mcp:0.1.0`. MCP listens inside the container on port `8080` and is published on the host as `127.0.0.1:8083` by default (`MCP_HOST_PORT`).
 
 3. Hermes (`~/.hermes/config.yaml`):
 
 ```yaml
 mcp_servers:
-  nemotron-transcribe:
+  nemo-transcribe:
     url: "http://127.0.0.1:8083/mcp"
     headers:
       Authorization: "Bearer YOUR_TOKEN_FROM_ENV"
@@ -140,7 +140,7 @@ cp .env.example .env
 Edit `.env` and set `NEMOTRON_BASE_URL` (for a local process, `http://127.0.0.1:8010/v1` is fine). Leave `MCP_TRANSPORT=stdio`.
 
 ```bash
-uv run nemotron-transcribe-mcp
+uv run nemo-transcribe-mcp
 ```
 
 Log lines go to stderr. Default format is one JSON object per line. Set `NEMOTRON_LOG_FORMAT=text` for a plain line in a terminal.
@@ -150,9 +150,9 @@ Cursor can launch it from this directory:
 ```json
 {
   "mcpServers": {
-    "nemotron-transcribe": {
+    "nemo-transcribe": {
       "command": "uv",
-      "args": ["run", "nemotron-transcribe-mcp"]
+      "args": ["run", "nemo-transcribe-mcp"]
     }
   }
 }

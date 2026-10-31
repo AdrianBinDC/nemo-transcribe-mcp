@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from nemotron_transcribe_mcp.config import load_config
+from nemo_transcribe_mcp.config import load_config
 
 
 def test_environment_overrides_saved_config(tmp_path: Path) -> None:
@@ -150,7 +150,7 @@ def test_unset_path_reads_the_user_config_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    folder = tmp_path / "nemotron-transcribe-mcp"
+    folder = tmp_path / "nemo-transcribe-mcp"
     folder.mkdir()
     (folder / "config.toml").write_text(
         'base_url = "http://10.0.0.8:8010/v1"\n',

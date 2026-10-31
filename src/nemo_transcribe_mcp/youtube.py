@@ -13,7 +13,7 @@ def _data_root() -> Path:
         root = Path(work)
         root.mkdir(parents=True, exist_ok=True)
         return root
-    return Path(user_data_dir("nemotron-transcribe-mcp", ensure_exists=True))
+    return Path(user_data_dir("nemo-transcribe-mcp", ensure_exists=True))
 
 
 _HOSTS = {"youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}

@@ -10,7 +10,7 @@ from mcp.client.stdio import stdio_client
 @pytest.mark.anyio
 async def test_no_arguments_serves_mcp_and_logs_the_endpoint_on_stderr(tmp_path: Path) -> None:
     err_path = tmp_path / "stderr.txt"
-    script = Path(sys.executable).parent / "nemotron-transcribe-mcp"
+    script = Path(sys.executable).parent / "nemo-transcribe-mcp"
     with err_path.open("w", encoding="utf-8") as errlog:
         params = StdioServerParameters(
             command=str(script),
@@ -28,7 +28,7 @@ async def test_no_arguments_serves_mcp_and_logs_the_endpoint_on_stderr(tmp_path:
         ):
             result = await session.initialize()
 
-    assert result.server_info.name == "nemotron-transcribe"
+    assert result.server_info.name == "nemo-transcribe"
     stderr = err_path.read_text(encoding="utf-8")
     started = next(
         json.loads(line)
@@ -41,7 +41,7 @@ async def test_no_arguments_serves_mcp_and_logs_the_endpoint_on_stderr(tmp_path:
 @pytest.mark.anyio
 async def test_server_offers_a_transcribe_tool(tmp_path: Path) -> None:
     err_path = tmp_path / "stderr.txt"
-    script = Path(sys.executable).parent / "nemotron-transcribe-mcp"
+    script = Path(sys.executable).parent / "nemo-transcribe-mcp"
     with err_path.open("w", encoding="utf-8") as errlog:
         params = StdioServerParameters(
             command=str(script),

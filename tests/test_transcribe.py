@@ -9,9 +9,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-from nemotron_transcribe_mcp.config import Config
-from nemotron_transcribe_mcp.plan import Silence
-from nemotron_transcribe_mcp.transcribe import (
+from nemo_transcribe_mcp.config import Config
+from nemo_transcribe_mcp.plan import Silence
+from nemo_transcribe_mcp.transcribe import (
     IncompleteTranscript,
     answer_text,
     prepare_clip,
@@ -332,7 +332,7 @@ def test_looser_silence_pass_runs_when_the_first_finds_no_pause(
             return []
         return [Silence(4.0, 5.0)]
 
-    monkeypatch.setattr("nemotron_transcribe_mcp.transcribe.detect_silences", fake_detect)
+    monkeypatch.setattr("nemo_transcribe_mcp.transcribe.detect_silences", fake_detect)
 
     def handler(request: httpx.Request) -> httpx.Response:
         del request
@@ -363,7 +363,7 @@ def test_speakers_repeat_ten_seconds_at_the_join(
         handle.setframerate(16000)
         handle.writeframes(b"\x00\x00" * 16000 * 20)
     monkeypatch.setattr(
-        "nemotron_transcribe_mcp.transcribe.detect_silences",
+        "nemo_transcribe_mcp.transcribe.detect_silences",
         lambda path, **kwargs: [Silence(12.0, 13.0)],
     )
     calls: list[httpx.Request] = []

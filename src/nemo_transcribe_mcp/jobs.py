@@ -7,7 +7,7 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
-from nemotron_transcribe_mcp.plan import stitch_transcripts
+from nemo_transcribe_mcp.plan import stitch_transcripts
 
 
 @dataclass(frozen=True)
@@ -345,7 +345,7 @@ class Jobs:
                 with self._slot:
                     if self._store.get(job_id).state in {"cancelled", "done", "failed"}:
                         return
-                    folder = Path(tempfile.mkdtemp(prefix="nemotron-job-"))
+                    folder = Path(tempfile.mkdtemp(prefix="nemo-job-"))
                     try:
                         if self._prepare is not None:
                             self._prepare(audio, settings, folder)

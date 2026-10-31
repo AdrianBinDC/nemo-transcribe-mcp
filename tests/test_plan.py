@@ -1,4 +1,4 @@
-from nemotron_transcribe_mcp.plan import (
+from nemo_transcribe_mcp.plan import (
     Silence,
     plan_pieces,
     speech_window,

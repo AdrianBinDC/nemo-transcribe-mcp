@@ -616,7 +616,7 @@ wheels = [
 ]
 
 [[package]]
-name = "nemotron-transcribe-mcp"
+name = "nemo-transcribe-mcp"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

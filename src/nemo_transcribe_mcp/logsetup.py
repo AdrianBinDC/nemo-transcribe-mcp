@@ -55,7 +55,7 @@ class Logger:
 
 
 def get_logger(name: str) -> Logger:
-    qualified = name if name.startswith("nemotron.") else f"nemotron.{name}"
+    qualified = name if name.startswith("nemo.") else f"nemo.{name}"
     return Logger(logging.getLogger(qualified))
 
 

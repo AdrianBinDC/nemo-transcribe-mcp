@@ -1,5 +1,5 @@
 [project]
-name = "nemotron-transcribe-mcp"
+name = "nemo-transcribe-mcp"
 version = "0.1.0"
 description = "MCP client for an already-running Nemotron 3.5 Transcribe endpoint"
 readme = "README.md"
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-nemotron-transcribe-mcp = "nemotron_transcribe_mcp.cli:main"
+nemo-transcribe-mcp = "nemo_transcribe_mcp.cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -53,4 +53,4 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 # Job worker must catch unexpected failures so the job store can mark them failed.
-"src/nemotron_transcribe_mcp/jobs.py" = ["BLE001"]
+"src/nemo_transcribe_mcp/jobs.py" = ["BLE001"]

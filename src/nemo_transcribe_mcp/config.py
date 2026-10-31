@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from dotenv import dotenv_values, find_dotenv
 from platformdirs import user_config_dir
 
-from nemotron_transcribe_mcp.languages import language_code
+from nemo_transcribe_mcp.languages import language_code
 
 DEFAULT_MODEL = "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4"
 
@@ -35,7 +35,7 @@ class Config:
 
 
 def default_config_path() -> Path:
-    return Path(user_config_dir("nemotron-transcribe-mcp", ensure_exists=False)) / "config.toml"
+    return Path(user_config_dir("nemo-transcribe-mcp", ensure_exists=False)) / "config.toml"
 
 
 def _environment(environ: Mapping[str, str] | None) -> Mapping[str, str]:

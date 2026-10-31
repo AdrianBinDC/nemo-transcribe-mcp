@@ -1,6 +1,6 @@
 import pytest
 
-from nemotron_transcribe_mcp.tokens import output_token_cap, question_span
+from nemo_transcribe_mcp.tokens import output_token_cap, question_span
 
 
 def test_ten_second_clip_reserves_transcript_room() -> None:

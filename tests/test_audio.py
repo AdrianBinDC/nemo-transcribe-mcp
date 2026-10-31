@@ -2,8 +2,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from nemotron_transcribe_mcp.audio import normalize_to_pcm, parse_silences
-from nemotron_transcribe_mcp.plan import Silence
+from nemo_transcribe_mcp.audio import normalize_to_pcm, parse_silences
+from nemo_transcribe_mcp.plan import Silence
 
 
 def test_normalize_makes_16khz_mono_pcm(tmp_path: Path) -> None:

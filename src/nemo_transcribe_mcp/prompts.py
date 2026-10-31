@@ -4,7 +4,7 @@ import yaml
 
 
 def _table() -> dict:
-    raw = files("nemotron_transcribe_mcp").joinpath("prompts.yaml").read_text(encoding="utf-8")
+    raw = files("nemo_transcribe_mcp").joinpath("prompts.yaml").read_text(encoding="utf-8")
     loaded = yaml.safe_load(raw)
     if not isinstance(loaded, dict):
         raise TypeError("prompts.yaml is not a table")

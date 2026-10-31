@@ -8,17 +8,17 @@ from pathlib import Path
 
 import httpx
 
-from nemotron_transcribe_mcp.audio import detect_silences, normalize_to_pcm, slice_pcm
-from nemotron_transcribe_mcp.config import Config
-from nemotron_transcribe_mcp.logsetup import get_logger
-from nemotron_transcribe_mcp.plan import (
+from nemo_transcribe_mcp.audio import detect_silences, normalize_to_pcm, slice_pcm
+from nemo_transcribe_mcp.config import Config
+from nemo_transcribe_mcp.logsetup import get_logger
+from nemo_transcribe_mcp.plan import (
     Piece,
     plan_pieces,
     speech_window,
     stitch_transcripts,
 )
-from nemotron_transcribe_mcp.prompts import prompt_for
-from nemotron_transcribe_mcp.tokens import output_token_cap
+from nemo_transcribe_mcp.prompts import prompt_for
+from nemo_transcribe_mcp.tokens import output_token_cap
 
 HARD_MAX_S = 3300
 log = get_logger("transcribe")

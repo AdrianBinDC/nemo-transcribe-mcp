@@ -1,7 +1,7 @@
 import io
 import json
 
-from nemotron_transcribe_mcp.logsetup import configure_logging, get_logger
+from nemo_transcribe_mcp.logsetup import configure_logging, get_logger
 
 
 def test_info_line_is_one_json_object() -> None:
@@ -11,7 +11,7 @@ def test_info_line_is_one_json_object() -> None:
 
     line = json.loads(stream.getvalue())
     assert line["level"] == "INFO"
-    assert line["logger"] == "nemotron.server"
+    assert line["logger"] == "nemo.server"
     assert line["event"] == "server_started"
     assert line["host"] == "127.0.0.1"
     assert line["ts"].endswith("Z")
@@ -37,7 +37,7 @@ def test_text_format_is_one_readable_line() -> None:
     get_logger("server").info("server_started", host="127.0.0.1")
 
     line = stream.getvalue().strip()
-    assert line.endswith("INFO nemotron.server server_started host=127.0.0.1")
+    assert line.endswith("INFO nemo.server server_started host=127.0.0.1")
     assert not line.startswith("{")
 
 

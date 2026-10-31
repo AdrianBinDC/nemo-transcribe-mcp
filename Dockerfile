@@ -18,4 +18,4 @@ RUN pip install --no-cache-dir . \
 USER mcp
 
 # Settings come from Compose env_file / environment at start time — not baked in.
-CMD ["nemotron-transcribe-mcp"]
+CMD ["nemo-transcribe-mcp"]

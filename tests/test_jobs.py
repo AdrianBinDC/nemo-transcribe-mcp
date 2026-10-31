@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from nemotron_transcribe_mcp.jobs import Jobs, JobStore, run_job
+from nemo_transcribe_mcp.jobs import Jobs, JobStore, run_job
 
 
 def _audio(tmp_path: Path) -> Path:

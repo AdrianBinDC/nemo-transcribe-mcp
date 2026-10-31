@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass
 from itertools import permutations
 
-from nemotron_transcribe_mcp.logsetup import get_logger
+from nemo_transcribe_mcp.logsetup import get_logger
 
 _SPEAKER = re.compile(r"<spk:(\d)>")
 _LOW_CONFIDENCE = 0.6

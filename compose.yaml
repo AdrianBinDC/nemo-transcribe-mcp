@@ -3,7 +3,7 @@
 services:
   mcp:
     build: .
-    image: nemotron-transcribe-mcp:0.1.0
+    image: nemo-transcribe-mcp:0.1.0
     env_file:
       - .env
     environment:

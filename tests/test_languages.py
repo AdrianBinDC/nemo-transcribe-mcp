@@ -1,6 +1,6 @@
 import pytest
 
-from nemotron_transcribe_mcp.languages import (
+from nemo_transcribe_mcp.languages import (
     apply_detected_source,
     language_id_note,
     supported_languages,

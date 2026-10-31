@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-from nemotron_transcribe_mcp.plan import Silence
+from nemo_transcribe_mcp.plan import Silence
 
 
 def normalize_to_pcm(source: Path, dest: Path, *, max_seconds: float | None = None) -> None:

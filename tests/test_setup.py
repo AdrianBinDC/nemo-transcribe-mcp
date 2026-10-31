@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from nemotron_transcribe_mcp.setupcheck import run_doctor, run_init
+from nemo_transcribe_mcp.setupcheck import run_doctor, run_init
 
 MODEL = "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4"
 
@@ -41,7 +41,7 @@ def test_init_saves_the_transcribe_server_and_prints_the_cursor_line(
     assert 'base_url = "http://127.0.0.1:8010/v1"' in saved
     assert MODEL in saved
     assert "off" in out.lower()
-    assert _cursor_config(out) == {"command": "uvx", "args": ["nemotron-transcribe-mcp"]}
+    assert _cursor_config(out) == {"command": "uvx", "args": ["nemo-transcribe-mcp"]}
 
 
 def test_init_stops_when_no_transcribe_server_answers(tmp_path: Path, capsys) -> None:

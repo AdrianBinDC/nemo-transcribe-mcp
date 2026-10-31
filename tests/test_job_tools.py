@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from nemotron_transcribe_mcp.cli import build_server
-from nemotron_transcribe_mcp.config import Config
-from nemotron_transcribe_mcp.jobs import Jobs
+from nemo_transcribe_mcp.cli import build_server
+from nemo_transcribe_mcp.config import Config
+from nemo_transcribe_mcp.jobs import Jobs
 
 
 def _config() -> Config:
