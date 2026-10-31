@@ -39,9 +39,7 @@ def cursor_install_line() -> str:
         separators=(",", ":"),
     ).encode()
     encoded = quote(base64.b64encode(raw).decode("ascii"), safe="")
-    return (
-        f"cursor://anysphere.cursor-deeplink/mcp/install?name=nemo-transcribe&config={encoded}"
-    )
+    return f"cursor://anysphere.cursor-deeplink/mcp/install?name=nemo-transcribe&config={encoded}"
 
 
 def _transcribe_model(model_ids: list[str]) -> str | None:
