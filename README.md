@@ -1,10 +1,66 @@
 # Nemotron Transcribe MCP
 
-Local [MCP](https://modelcontextprotocol.io) server that transcribes an audio file by calling an already-running [Nemotron 3.5 Transcribe](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B) endpoint. It does not download weights or start the model.
+MCP server that exposes transcription tools over the [Model Context Protocol](https://modelcontextprotocol.io) and calls an already-running [Nemotron 3.5 Transcribe](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B) endpoint. It does not download weights or start the model.
 
-Long files are cut at a pause, about every 55 minutes, and sent one piece at a time. Pass `speakers` from 2 to 8 to repeat 10 seconds at each join. Speaker numbers start over on every piece.
+Long files are cut at a pause (~55 minutes) and sent one piece at a time. With `speakers` 2–8, joins overlap by 10 seconds and speaker tags are remapped across pieces. It also translates: same language → same language, or either direction with English on one side. A YouTube link is saved first, then handled like a file. This checkpoint returns no word times—use another model for SRT/VTT.
 
-This server writes a transcript. A YouTube link is saved first, then handled like a file. For timed subtitles (SRT or VTT), use another model. This checkpoint returns no word times.
+## Why this stack
+
+- Your endpoint, your network: audio stays on your machine or LAN
+- Long-form + speaker tags (`<spk:0>`…`<spk:7>`), pause-aware chunking
+- Translation via `translate`: stay in-language, or English ↔ supported language
+- Agent-ready MCP tools (Cursor, Hermes)—not a one-off script
+
+## Architecture
+
+```mermaid
+flowchart LR
+  AIClient[AI_client] --> MCPServer[nemo_transcribe_mcp]
+  MCPServer --> Nemotron[Nemotron_endpoint]
+```
+
+## MCP Tools
+
+| Tool | Inputs | Returns |
+| --- | --- | --- |
+| `transcribe` | `path`, `speakers` 0 or 2–8, `style`, `wait_seconds` | transcript text, or job JSON if still running |
+| `translate` | `path`, source/target language, `wait_seconds` | translation text or job JSON |
+| `ask_about_audio` | `path`, `question`, optional span | answer or job JSON |
+| `identify_language` | `path`, optional candidates | language label |
+| `list_languages` | — | JSON language matrix |
+| `get_job_status` | `job_id`, `wait_seconds` | status JSON |
+| `get_job_result` | `job_id`, optional `offset`/`limit` | transcript text slice |
+| `list_jobs` | optional `state`, `limit` | job list JSON |
+| `cancel_job` | `job_id` | cancel ack JSON |
+
+Sample call:
+
+```json
+{
+  "name": "transcribe",
+  "arguments": {
+    "path": "/data/audio/episode.m4a",
+    "speakers": 4,
+    "style": "clean"
+  }
+}
+```
+
+`style` is `verbatim` (default), `clean`, `technical`, or `raw_dictation`. Long work returns a job id after `wait_seconds` (default 25); use `get_job_status` / `get_job_result`—do not poll in a tight loop.
+
+## How it registers
+
+```python
+server = MCPServer(name="nemo-transcribe", instructions="...")
+
+
+@server.tool(description="Speech to text for one audio file or one YouTube link. ...")
+def transcribe(
+    path: str, speakers: int = 0, style: str = "verbatim", wait_seconds: float = 25
+) -> str: ...
+```
+
+Typed tool args come from the Python signatures; the client sees them as the MCP input schema.
 
 ## Languages
 
@@ -158,7 +214,7 @@ Cursor can launch it from this directory:
 }
 ```
 
-Ask the client to transcribe a file path. The tool is `transcribe`.
+Ask the client to transcribe a file path (tool: `transcribe`).
 
 ## Tests and lint
 

@@ -1,7 +1,7 @@
 [project]
 name = "nemo-transcribe-mcp"
 version = "0.1.0"
-description = "MCP client for an already-running Nemotron 3.5 Transcribe endpoint"
+description = "MCP server that exposes transcription tools over the Model Context Protocol and calls an already-running Nemotron 3.5 Transcribe endpoint"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
