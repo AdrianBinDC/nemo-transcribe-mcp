@@ -222,6 +222,44 @@ def test_a_finished_file_is_returned_with_cached_set(tmp_path: Path) -> None:
     assert again["state"] == "done"
 
 
+def test_a_second_file_waits_until_the_first_finishes(tmp_path: Path) -> None:
+    first = tmp_path / "a.bin"
+    second = tmp_path / "b.bin"
+    first.write_bytes(b"a" * 64)
+    second.write_bytes(b"b" * 64)
+    started = threading.Event()
+    release = threading.Event()
+    seen: list[str] = []
+
+    def piece(path: Path, settings: dict[str, object], start: float, end: float, cancelled: threading.Event, work: Path) -> str:
+        seen.append(path.name)
+        if path.name == "a.bin":
+            started.set()
+            release.wait(2)
+        return path.name
+
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=piece,
+    )
+    jobs.transcribe(first, _settings(), wait_seconds=0)
+    assert started.wait(1)
+    waiting = jobs.transcribe(second, _settings(), wait_seconds=0)
+    assert isinstance(waiting, dict)
+    assert waiting["state"] == "queued"
+    assert "waiting" in waiting["message_for_agent"].lower()
+    assert seen == ["a.bin"]
+
+    release.set()
+    status = jobs.status(waiting["job_id"], wait_seconds=2)
+    jobs.close()
+
+    assert status["state"] == "done"
+    assert seen == ["a.bin", "b.bin"]
+    assert jobs.result(waiting["job_id"]) == "b.bin"
+
+
 def test_unknown_job_is_rejected(tmp_path: Path) -> None:
     jobs = Jobs(tmp_path / "jobs.db", plan=lambda *_: [], transcribe_piece=lambda *_: "")
     with pytest.raises(KeyError, match="missing"):

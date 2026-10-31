@@ -196,6 +196,24 @@ class JobStore:
             event.set()
 
 
+def _message(state: str, detail: str) -> str:
+    if state == "queued":
+        return (
+            "Waiting for the current file to finish. Tell the user it is waiting. "
+            "Call get_job_status with this job_id later; do not poll in a loop."
+        )
+    if state == "done":
+        return "Transcription is done. Call get_job_result for the words."
+    if state == "failed":
+        return detail
+    if state == "cancelled":
+        return "Cancelled. Call get_job_result for any pieces that finished."
+    return (
+        "Still transcribing. Tell the user it is running. "
+        "Call get_job_status with this job_id later; do not poll in a loop."
+    )
+
+
 def _joined(store: JobStore, job_id: str) -> str:
     return stitch_transcripts(chunk.text for chunk in store.chunks(job_id))
 
@@ -245,6 +263,7 @@ class Jobs:
         self._transcribe_piece = transcribe_piece
         self._threads: dict[str, threading.Thread] = {}
         self._threads_lock = threading.Lock()
+        self._slot = threading.Lock()
 
     def transcribe(self, audio: Path, settings: dict[str, object], *, wait_seconds: float):
         job = self._store.submit(audio, settings)
@@ -265,10 +284,7 @@ class Jobs:
             "job_id": job.id,
             "state": loaded.state,
             "cached": False,
-            "message_for_agent": (
-                "Still transcribing. Tell the user it is running. "
-                "Call get_job_status with this job_id later; do not poll in a loop."
-            ),
+            "message_for_agent": _message(loaded.state, self._store.result_text(job.id)),
         }
 
     def status(self, job_id: str, wait_seconds: float = 0) -> dict[str, object]:
@@ -276,22 +292,11 @@ class Jobs:
         if wait_seconds:
             self._store.wait_until_settled(job_id, wait_seconds)
         loaded = self._store.get(job_id)
-        if loaded.state == "done":
-            message = "Transcription is done. Call get_job_result for the words."
-        elif loaded.state == "failed":
-            message = self._store.result_text(job_id)
-        elif loaded.state == "cancelled":
-            message = "Cancelled. Call get_job_result for any pieces that finished."
-        else:
-            message = (
-                "Still transcribing. Tell the user it is running. "
-                "Call get_job_status with this job_id later; do not poll in a loop."
-            )
         return {
             "job_id": loaded.id,
             "state": loaded.state,
             "progress": {"chunks_done": len(self._store.chunks(job_id))},
-            "message_for_agent": message,
+            "message_for_agent": _message(loaded.state, self._store.result_text(job_id)),
         }
 
     def cancel(self, job_id: str) -> dict[str, object]:
@@ -330,17 +335,22 @@ class Jobs:
                 return
 
             def work() -> None:
-                folder = Path(tempfile.mkdtemp(prefix="nemotron-job-"))
-                try:
-                    spans = self._plan(audio, settings, folder)
+                with self._slot:
+                    if self._store.get(job_id).state in {"cancelled", "done", "failed"}:
+                        return
+                    folder = Path(tempfile.mkdtemp(prefix="nemotron-job-"))
+                    try:
+                        spans = self._plan(audio, settings, folder)
 
-                    def one(start_s: float, end_s: float, cancelled: threading.Event, work_path: Path) -> str:
-                        return self._transcribe_piece(audio, settings, start_s, end_s, cancelled, work_path)
+                        def one(start_s: float, end_s: float, cancelled: threading.Event, work_path: Path) -> str:
+                            return self._transcribe_piece(
+                                audio, settings, start_s, end_s, cancelled, work_path
+                            )
 
-                    run_job(self._store, job_id, spans, one, folder)
-                except Exception as exc:
-                    if self._store.get(job_id).state not in {"done", "cancelled", "failed"}:
-                        self._store.fail(job_id, str(exc))
+                        run_job(self._store, job_id, spans, one, folder)
+                    except Exception as exc:
+                        if self._store.get(job_id).state not in {"done", "cancelled", "failed"}:
+                            self._store.fail(job_id, str(exc))
 
             thread = threading.Thread(target=work, daemon=True)
             self._threads[job_id] = thread
