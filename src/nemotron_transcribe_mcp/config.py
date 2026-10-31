@@ -4,10 +4,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import dotenv_values, find_dotenv
 from platformdirs import user_config_dir
 
 
-DEFAULT_BASE_URL = "http://127.0.0.1:8010/v1"
 DEFAULT_MODEL = "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4"
 
 
@@ -22,11 +22,24 @@ def default_config_path() -> Path:
     return Path(user_config_dir("nemotron-transcribe-mcp", ensure_exists=False)) / "config.toml"
 
 
+def _environment(environ: Mapping[str, str] | None) -> Mapping[str, str]:
+    if environ is not None:
+        return environ
+    merged = dict(os.environ)
+    dotenv_path = find_dotenv(usecwd=True)
+    if not dotenv_path:
+        return merged
+    for key, value in dotenv_values(dotenv_path).items():
+        if value and not merged.get(key, "").strip():
+            merged[key] = value
+    return merged
+
+
 def load_config(
     environ: Mapping[str, str] | None = None,
     path: Path | None = None,
 ) -> Config:
-    env = os.environ if environ is None else environ
+    env = _environment(environ)
     if path is None:
         path = default_config_path()
     saved: dict[str, object] = {}
@@ -44,8 +57,13 @@ def load_config(
             return from_file.strip()
         return default
 
+    base_url = pick("NEMOTRON_BASE_URL", "base_url", "").rstrip("/")
+    if not base_url:
+        raise ValueError(
+            "NEMOTRON_BASE_URL is not set. Copy .env.example to .env and set the address of your Transcribe server."
+        )
     return Config(
-        base_url=pick("NEMOTRON_BASE_URL", "base_url", DEFAULT_BASE_URL).rstrip("/"),
+        base_url=base_url,
         model=pick("NEMOTRON_MODEL", "model", DEFAULT_MODEL),
         api_key=pick("NEMOTRON_API_KEY", "api_key", ""),
     )

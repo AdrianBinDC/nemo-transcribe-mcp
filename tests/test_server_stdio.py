@@ -47,4 +47,6 @@ async def test_server_offers_a_transcribe_tool(tmp_path: Path) -> None:
                 listed = await session.list_tools()
 
     tool = next(item for item in listed.tools if item.name == "transcribe")
-    assert "audio" in (tool.description or "").lower()
+    description = (tool.description or "").lower()
+    assert "audio" in description
+    assert "pause" in description

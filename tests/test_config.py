@@ -42,12 +42,37 @@ def test_saved_config_is_used_when_environment_is_empty(tmp_path: Path) -> None:
     assert config.api_key == "file-key"
 
 
-def test_builtin_default_points_at_the_spark_transcribe_port(tmp_path: Path) -> None:
-    config = load_config({}, path=tmp_path / "missing.toml")
+def test_missing_base_url_names_the_env_file(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match=r"NEMOTRON_BASE_URL"):
+        load_config({}, path=tmp_path / "missing.toml")
+
+
+def test_dotenv_file_supplies_the_base_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("NEMOTRON_BASE_URL", raising=False)
+    (tmp_path / ".env").write_text(
+        'NEMOTRON_BASE_URL=http://10.1.2.3:8010/v1\n',
+        encoding="utf-8",
+    )
+
+    config = load_config(path=tmp_path / "missing.toml")
+
+    assert config.base_url == "http://10.1.2.3:8010/v1"
+
+
+def test_process_environment_overrides_dotenv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("NEMOTRON_BASE_URL", "http://127.0.0.1:8010/v1")
+    (tmp_path / ".env").write_text(
+        'NEMOTRON_BASE_URL=http://127.0.0.1:9000/v1\n',
+        encoding="utf-8",
+    )
+
+    config = load_config(path=tmp_path / "missing.toml")
 
     assert config.base_url == "http://127.0.0.1:8010/v1"
-    assert config.model == "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4"
-    assert config.api_key == ""
 
 
 def test_base_url_trailing_slash_is_removed() -> None:
