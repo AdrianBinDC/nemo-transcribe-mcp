@@ -4,8 +4,10 @@ version = "0.1.0"
 description = "MCP client for an already-running Nemotron 3.5 Transcribe endpoint"
 requires-python = ">=3.12"
 dependencies = [
+    "httpx>=0.28.1",
     "mcp>=2.3.0",
     "platformdirs>=4",
+    "pyyaml>=6.0.3",
 ]
 
 [project.scripts]
