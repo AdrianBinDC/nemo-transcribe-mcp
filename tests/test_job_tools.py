@@ -53,6 +53,88 @@ async def test_clean_style_does_not_reuse_a_verbatim_job(tmp_path: Path) -> None
 
 
 @pytest.mark.anyio
+async def test_technical_style_does_not_reuse_another_style(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    seen: list[str] = []
+
+    def piece(path, settings, start, end, cancelled, work) -> str:
+        seen.append(str(settings["style"]))
+        return str(settings["style"])
+
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=piece,
+    )
+    server = build_server(jobs, _config())
+
+    clean = await server.call_tool(
+        "transcribe",
+        {"path": str(audio), "style": "clean", "wait_seconds": 2},
+    )
+    technical = await server.call_tool(
+        "transcribe",
+        {"path": str(audio), "style": "technical", "wait_seconds": 2},
+    )
+
+    assert _text(clean) == "clean"
+    assert _text(technical) == "technical"
+    assert seen == ["clean", "technical"]
+    jobs.close()
+
+
+@pytest.mark.anyio
+async def test_raw_dictation_does_not_reuse_another_style(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    seen: list[str] = []
+
+    def piece(path, settings, start, end, cancelled, work) -> str:
+        seen.append(str(settings["style"]))
+        return str(settings["style"])
+
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=piece,
+    )
+    server = build_server(jobs, _config())
+
+    technical = await server.call_tool(
+        "transcribe",
+        {"path": str(audio), "style": "technical", "wait_seconds": 2},
+    )
+    raw = await server.call_tool(
+        "transcribe",
+        {"path": str(audio), "style": "raw_dictation", "wait_seconds": 2},
+    )
+
+    assert _text(technical) == "technical"
+    assert _text(raw) == "raw_dictation"
+    assert seen == ["technical", "raw_dictation"]
+    jobs.close()
+
+
+@pytest.mark.anyio
+async def test_speakers_with_technical_style_is_rejected(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=lambda path, settings, start, end, cancelled, work: "nope",
+    )
+    server = build_server(jobs, _config())
+
+    with pytest.raises(Exception) as raised:
+        await server.call_tool(
+            "transcribe",
+            {"path": str(audio), "style": "technical", "speakers": 2, "wait_seconds": 2},
+        )
+    assert str(raised.value.__cause__) == "speakers cannot be combined with style technical"
+
+    jobs.close()
+
+
+@pytest.mark.anyio
 async def test_a_fast_file_returns_the_words(tmp_path: Path) -> None:
     audio = _audio(tmp_path)
     jobs = Jobs(

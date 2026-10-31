@@ -110,6 +110,63 @@ def test_clean_style_asks_the_model_to_drop_fillers(tmp_path: Path) -> None:
     )
 
 
+def test_technical_style_asks_the_model_to_keep_exact_strings(tmp_path: Path) -> None:
+    source = tmp_path / "note.wav"
+    _one_second_wav(source)
+    seen: dict[str, httpx.Request] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["request"] = request
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {"role": "assistant", "content": "mail at example.com"},
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+        )
+
+    transcribe_file(source, config=SPARK, transport=httpx.MockTransport(handler), style="technical")
+
+    body = json.loads(seen["request"].content)
+    assert body["messages"][0]["content"][0]["text"] == (
+        "Transcribe as a clean written transcript. "
+        "Preserve exact values and punctuation/separators in emails, URLs, file paths, commands, and identifiers. "
+        "Use conventional written forms."
+    )
+
+
+def test_raw_dictation_asks_for_spoken_numbers_and_no_punctuation(tmp_path: Path) -> None:
+    source = tmp_path / "note.wav"
+    _one_second_wav(source)
+    seen: dict[str, httpx.Request] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["request"] = request
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {"role": "assistant", "content": "twenty nine"},
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+        )
+
+    transcribe_file(source, config=SPARK, transport=httpx.MockTransport(handler), style="raw_dictation")
+
+    body = json.loads(seen["request"].content)
+    assert body["messages"][0]["content"][0]["text"] == (
+        "Transcribe word for word without punctuation. "
+        "Write numbers as spoken words and keep individually spoken letters separate."
+    )
+
+
 def test_length_finish_means_the_transcript_was_cut_off(tmp_path: Path) -> None:
     source = tmp_path / "note.wav"
     _one_second_wav(source)

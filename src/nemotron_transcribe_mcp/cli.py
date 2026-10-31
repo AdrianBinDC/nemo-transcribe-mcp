@@ -48,6 +48,9 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
             "Speech to text for one audio file. "
             "style verbatim, the default, keeps every word, including fillers. "
             "style clean drops fillers and accidental repetitions and keeps the other words. "
+            "style technical keeps emails, URLs, file paths, commands, and IDs exactly. "
+            "Do not pass speakers with style technical. "
+            "style raw_dictation drops punctuation and writes numbers as spoken words. "
             "A long file is cut at a pause and sent one piece at a time. "
             "Pass speakers from 2 to 8 to repeat 10 seconds at each join. "
             "Speaker numbers are matched across those joins. "
@@ -59,8 +62,10 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
     def transcribe(path: str, speakers: int = 0, style: str = "verbatim", wait_seconds: float = 25) -> str:
         if speakers != 0 and not 2 <= speakers <= 8:
             raise ValueError("speakers must be from 2 to 8")
-        if style not in {"verbatim", "clean"}:
-            raise ValueError("style must be verbatim or clean")
+        if style not in {"verbatim", "clean", "technical", "raw_dictation"}:
+            raise ValueError("style must be verbatim, clean, technical, or raw_dictation")
+        if style == "technical" and speakers != 0:
+            raise ValueError("speakers cannot be combined with style technical")
         if wait_seconds < 0:
             raise ValueError("wait_seconds must be 0 or more")
         prompt_for(style)

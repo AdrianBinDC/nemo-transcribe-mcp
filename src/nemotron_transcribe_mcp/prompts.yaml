@@ -5,3 +5,7 @@ templates:
     user: "Audio transcription. Language: as spoken. Wording: verbatim, including fillers and repetitions. Formatting: punctuation and capitalization. Output: transcript only."
   - id: clean
     user: "Audio transcription. Language: as spoken. Wording: omit fillers and accidental repetitions; keep the remaining spoken wording unchanged. Formatting: punctuation and capitalization. Output: transcript only."
+  - id: technical
+    user: "Transcribe as a clean written transcript. Preserve exact values and punctuation/separators in emails, URLs, file paths, commands, and identifiers. Use conventional written forms."
+  - id: raw_dictation
+    user: "Transcribe word for word without punctuation. Write numbers as spoken words and keep individually spoken letters separate."
