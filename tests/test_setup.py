@@ -22,7 +22,9 @@ def _cursor_config(text: str) -> dict[str, object]:
     return json.loads(base64.b64decode(encoded))
 
 
-def test_init_saves_the_transcribe_server_and_prints_the_cursor_line(tmp_path: Path, capsys) -> None:
+def test_init_saves_the_transcribe_server_and_prints_the_cursor_line(
+    tmp_path: Path, capsys
+) -> None:
     path = tmp_path / "config.toml"
 
     code = run_init(
@@ -77,7 +79,9 @@ def test_doctor_reports_word_timestamps_off(tmp_path: Path, capsys) -> None:
     path = tmp_path / "config.toml"
     path.write_text(f'base_url = "http://127.0.0.1:8010/v1"\nmodel = "{MODEL}"\n', encoding="utf-8")
 
-    code = run_doctor(config_path=path, list_models=_models, ffmpeg_version=lambda: "ffmpeg version 7")
+    code = run_doctor(
+        config_path=path, list_models=_models, ffmpeg_version=lambda: "ffmpeg version 7"
+    )
 
     out = capsys.readouterr().out.lower()
     assert code == 0

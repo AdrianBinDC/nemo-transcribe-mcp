@@ -2,6 +2,10 @@
 name = "nemotron-transcribe-mcp"
 version = "0.1.0"
 description = "MCP client for an already-running Nemotron 3.5 Transcribe endpoint"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Adrian Bolinger" }]
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
@@ -20,7 +24,33 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "pytest>=8",
+    "ruff>=0.17.3",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+src = ["src", "tests"]
+line-length = 100
+
+[tool.ruff.lint]
+# E4/E7/E9 instead of full E: skip E501; the formatter owns line length.
+select = [
+    "E4",
+    "E7",
+    "E9",
+    "F",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "BLE",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Job worker must catch unexpected failures so the job store can mark them failed.
+"src/nemotron_transcribe_mcp/jobs.py" = ["BLE001"]

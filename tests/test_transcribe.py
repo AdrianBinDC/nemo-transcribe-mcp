@@ -7,7 +7,6 @@ import wave
 from pathlib import Path
 
 import httpx
-
 import pytest
 
 from nemotron_transcribe_mcp.config import Config
@@ -165,7 +164,9 @@ def test_raw_dictation_asks_for_spoken_numbers_and_no_punctuation(tmp_path: Path
             },
         )
 
-    transcribe_file(source, config=SPARK, transport=httpx.MockTransport(handler), style="raw_dictation")
+    transcribe_file(
+        source, config=SPARK, transport=httpx.MockTransport(handler), style="raw_dictation"
+    )
 
     body = json.loads(seen["request"].content)
     assert body["messages"][0]["content"][0]["text"] == (
@@ -201,7 +202,9 @@ def test_a_translation_prompt_is_sent_unchanged(tmp_path: Path) -> None:
     )
 
     body = json.loads(seen["request"].content)
-    assert body["messages"][0]["content"][0]["text"] == "Please translate the given speech to French."
+    assert (
+        body["messages"][0]["content"][0]["text"] == "Please translate the given speech to French."
+    )
 
 
 def test_a_language_clip_keeps_only_the_first_seconds(tmp_path: Path) -> None:
@@ -320,7 +323,9 @@ def test_looser_silence_pass_runs_when_the_first_finds_no_pause(
     _gap_wav(source)
     seen: list[tuple[float, float]] = []
 
-    def fake_detect(path: Path, *, noise_db: float = -35, min_silence_s: float = 0.5) -> list[Silence]:
+    def fake_detect(
+        path: Path, *, noise_db: float = -35, min_silence_s: float = 0.5
+    ) -> list[Silence]:
         del path
         seen.append((noise_db, min_silence_s))
         if len(seen) == 1:
@@ -482,4 +487,8 @@ def test_show_reasoning_keeps_the_model_reasoning() -> None:
 def test_missing_file_names_the_path(tmp_path: Path) -> None:
     missing = tmp_path / "nope.wav"
     with pytest.raises(FileNotFoundError, match="nope.wav"):
-        transcribe_file(missing, config=SPARK, transport=httpx.MockTransport(lambda request: httpx.Response(500)))
+        transcribe_file(
+            missing,
+            config=SPARK,
+            transport=httpx.MockTransport(lambda request: httpx.Response(500)),
+        )

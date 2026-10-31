@@ -1,4 +1,9 @@
-from nemotron_transcribe_mcp.plan import Silence, plan_pieces, speech_window, stitch_transcripts
+from nemotron_transcribe_mcp.plan import (
+    Silence,
+    plan_pieces,
+    speech_window,
+    stitch_transcripts,
+)
 
 
 def test_language_sample_skips_the_opening_pause_and_keeps_ten_seconds() -> None:
@@ -71,9 +76,7 @@ def test_speaker_tags_follow_the_same_voice_across_the_join() -> None:
 
     second = stitch_transcripts([first, "<spk:0> foxtrot <spk:1> golf"])
 
-    assert second == (
-        "<spk:0> alpha bravo <spk:1> charlie delta <spk:2> echo foxtrot <spk:3> golf"
-    )
+    assert second == ("<spk:0> alpha bravo <spk:1> charlie delta <spk:2> echo foxtrot <spk:3> golf")
 
 
 def test_an_uncertain_speaker_join_is_marked_and_not_remapped() -> None:

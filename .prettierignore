@@ -1,0 +1,6 @@
+.venv
+node_modules
+uv.lock
+work
+audio
+tests/audio

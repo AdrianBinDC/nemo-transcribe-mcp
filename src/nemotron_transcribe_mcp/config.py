@@ -11,7 +11,6 @@ from platformdirs import user_config_dir
 
 from nemotron_transcribe_mcp.languages import language_code
 
-
 DEFAULT_MODEL = "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4"
 
 
@@ -103,11 +102,15 @@ def load_config(
     try:
         source_language = language_code(raw_source) if raw_source else ""
     except ValueError:
-        raise ValueError("NEMOTRON_SOURCE_LANGUAGE must be a code from .env.example, such as en or pl.") from None
+        raise ValueError(
+            "NEMOTRON_SOURCE_LANGUAGE must be a code from .env.example, such as en or pl."
+        ) from None
     try:
         target_language = language_code(raw_target)
     except ValueError:
-        raise ValueError("NEMOTRON_TARGET_LANGUAGE must be a code from .env.example, such as en or th.") from None
+        raise ValueError(
+            "NEMOTRON_TARGET_LANGUAGE must be a code from .env.example, such as en or th."
+        ) from None
 
     transport = pick("MCP_TRANSPORT", "transport", "stdio").lower()
     if transport not in TRANSPORTS:

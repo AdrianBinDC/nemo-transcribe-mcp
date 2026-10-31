@@ -22,9 +22,11 @@ async def test_no_arguments_serves_mcp_and_logs_the_endpoint_on_stderr(tmp_path:
                 "XDG_DATA_HOME": str(tmp_path / "data"),
             },
         )
-        async with stdio_client(params, errlog=errlog) as (read, write):
-            async with ClientSession(read, write) as session:
-                result = await session.initialize()
+        async with (
+            stdio_client(params, errlog=errlog) as (read, write),
+            ClientSession(read, write) as session,
+        ):
+            result = await session.initialize()
 
     assert result.server_info.name == "nemotron-transcribe"
     stderr = err_path.read_text(encoding="utf-8")
@@ -50,10 +52,12 @@ async def test_server_offers_a_transcribe_tool(tmp_path: Path) -> None:
                 "XDG_DATA_HOME": str(tmp_path / "data"),
             },
         )
-        async with stdio_client(params, errlog=errlog) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                listed = await session.list_tools()
+        async with (
+            stdio_client(params, errlog=errlog) as (read, write),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
+            listed = await session.list_tools()
 
     names = {item.name for item in listed.tools}
     assert names >= {

@@ -1,11 +1,10 @@
-import json
 import threading
 import time
 from pathlib import Path
 
 import pytest
 
-from nemotron_transcribe_mcp.jobs import JobStore, Jobs, run_job
+from nemotron_transcribe_mcp.jobs import Jobs, JobStore, run_job
 
 
 def _audio(tmp_path: Path) -> Path:
@@ -41,7 +40,9 @@ def test_a_finished_job_comes_back_as_cached(tmp_path: Path) -> None:
     assert again.cached is True
 
 
-def test_reopening_the_database_queues_an_interrupted_job_and_keeps_its_piece(tmp_path: Path) -> None:
+def test_reopening_the_database_queues_an_interrupted_job_and_keeps_its_piece(
+    tmp_path: Path,
+) -> None:
     db = tmp_path / "jobs.db"
     store = JobStore(db)
     audio = _audio(tmp_path)
@@ -124,7 +125,14 @@ def test_a_fast_transcription_returns_the_words(tmp_path: Path) -> None:
     def plan(path: Path, settings: dict[str, object], work: Path) -> list[tuple[float, float]]:
         return [(0.0, 1.0)]
 
-    def piece(path: Path, settings: dict[str, object], start: float, end: float, cancelled: threading.Event, work: Path) -> str:
+    def piece(
+        path: Path,
+        settings: dict[str, object],
+        start: float,
+        end: float,
+        cancelled: threading.Event,
+        work: Path,
+    ) -> str:
         return "hello"
 
     jobs = Jobs(tmp_path / "jobs.db", plan=plan, transcribe_piece=piece)
@@ -141,7 +149,14 @@ def test_a_slow_transcription_returns_a_job_id(tmp_path: Path) -> None:
     def plan(path: Path, settings: dict[str, object], work: Path) -> list[tuple[float, float]]:
         return [(0.0, 1.0)]
 
-    def piece(path: Path, settings: dict[str, object], start: float, end: float, cancelled: threading.Event, work: Path) -> str:
+    def piece(
+        path: Path,
+        settings: dict[str, object],
+        start: float,
+        end: float,
+        cancelled: threading.Event,
+        work: Path,
+    ) -> str:
         hold.wait(2)
         return "later"
 
@@ -162,7 +177,14 @@ def test_status_waits_until_the_job_finishes(tmp_path: Path) -> None:
     def plan(path: Path, settings: dict[str, object], work: Path) -> list[tuple[float, float]]:
         return [(0.0, 1.0)]
 
-    def piece(path: Path, settings: dict[str, object], start: float, end: float, cancelled: threading.Event, work: Path) -> str:
+    def piece(
+        path: Path,
+        settings: dict[str, object],
+        start: float,
+        end: float,
+        cancelled: threading.Event,
+        work: Path,
+    ) -> str:
         time.sleep(0.2)
         return "hello"
 
@@ -209,7 +231,14 @@ def test_a_finished_file_is_returned_with_cached_set(tmp_path: Path) -> None:
     def plan(path: Path, settings: dict[str, object], work: Path) -> list[tuple[float, float]]:
         return [(0.0, 1.0)]
 
-    def piece(path: Path, settings: dict[str, object], start: float, end: float, cancelled: threading.Event, work: Path) -> str:
+    def piece(
+        path: Path,
+        settings: dict[str, object],
+        start: float,
+        end: float,
+        cancelled: threading.Event,
+        work: Path,
+    ) -> str:
         return "hello"
 
     jobs = Jobs(tmp_path / "jobs.db", plan=plan, transcribe_piece=piece)
@@ -231,7 +260,14 @@ def test_a_second_file_waits_until_the_first_finishes(tmp_path: Path) -> None:
     release = threading.Event()
     seen: list[str] = []
 
-    def piece(path: Path, settings: dict[str, object], start: float, end: float, cancelled: threading.Event, work: Path) -> str:
+    def piece(
+        path: Path,
+        settings: dict[str, object],
+        start: float,
+        end: float,
+        cancelled: threading.Event,
+        work: Path,
+    ) -> str:
         seen.append(path.name)
         if path.name == "a.bin":
             started.set()

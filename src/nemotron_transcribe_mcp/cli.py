@@ -121,7 +121,9 @@ def build_server(jobs: Jobs, config: Config, fetch_youtube=None) -> MCPServer:
         ),
         structured_output=False,
     )
-    def transcribe(path: str, speakers: int = 0, style: str = "verbatim", wait_seconds: float = 25) -> str:
+    def transcribe(
+        path: str, speakers: int = 0, style: str = "verbatim", wait_seconds: float = 25
+    ) -> str:
         if speakers != 0 and not 2 <= speakers <= 8:
             raise ValueError("speakers must be from 2 to 8")
         if style not in {"verbatim", "clean", "technical", "raw_dictation"}:
@@ -332,7 +334,9 @@ def build_server(jobs: Jobs, config: Config, fetch_youtube=None) -> MCPServer:
         ),
         structured_output=False,
     )
-    def get_job_result(job_id: str, format: str = "text", offset: int = 0, limit: int = 8000) -> str:
+    def get_job_result(
+        job_id: str, format: str = "text", offset: int = 0, limit: int = 8000
+    ) -> str:
         if format != "text":
             raise ValueError("only text results are stored")
         return jobs.result(job_id, offset=offset, limit=limit)
@@ -440,9 +444,9 @@ def main() -> None:
 
 
 def _run_http(server: MCPServer, config: Config) -> None:
+    import uvicorn
     from starlette.requests import Request
     from starlette.responses import JSONResponse
-    import uvicorn
 
     @server.custom_route("/healthz", methods=["GET"])
     async def healthz(_request: Request) -> JSONResponse:

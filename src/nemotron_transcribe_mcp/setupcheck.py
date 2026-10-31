@@ -20,7 +20,9 @@ def list_model_ids(base_url: str) -> list[str]:
     data = payload.get("data", [])
     if not isinstance(data, list):
         return []
-    return [item["id"] for item in data if isinstance(item, dict) and isinstance(item.get("id"), str)]
+    return [
+        item["id"] for item in data if isinstance(item, dict) and isinstance(item.get("id"), str)
+    ]
 
 
 def ffmpeg_version() -> str | None:
@@ -38,8 +40,7 @@ def cursor_install_line() -> str:
     ).encode()
     encoded = quote(base64.b64encode(raw).decode("ascii"), safe="")
     return (
-        "cursor://anysphere.cursor-deeplink/mcp/install"
-        f"?name=nemotron-transcribe&config={encoded}"
+        f"cursor://anysphere.cursor-deeplink/mcp/install?name=nemotron-transcribe&config={encoded}"
     )
 
 

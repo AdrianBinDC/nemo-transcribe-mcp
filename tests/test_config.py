@@ -8,9 +8,7 @@ from nemotron_transcribe_mcp.config import load_config
 def test_environment_overrides_saved_config(tmp_path: Path) -> None:
     saved = tmp_path / "config.toml"
     saved.write_text(
-        'base_url = "http://127.0.0.1:8000/v1"\n'
-        'model = "saved-model"\n'
-        'api_key = "saved-key"\n'
+        'base_url = "http://127.0.0.1:8000/v1"\nmodel = "saved-model"\napi_key = "saved-key"\n'
     )
 
     config = load_config(
@@ -56,7 +54,9 @@ def test_log_level_comes_from_the_environment(tmp_path: Path) -> None:
     assert config.log_format == "text"
 
 
-def test_source_language_is_blank_and_the_written_language_defaults_to_english(tmp_path: Path) -> None:
+def test_source_language_is_blank_and_the_written_language_defaults_to_english(
+    tmp_path: Path,
+) -> None:
     config = load_config(
         {"NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1"},
         path=tmp_path / "missing.toml",
@@ -111,7 +111,7 @@ def test_dotenv_file_supplies_the_base_url(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("NEMOTRON_BASE_URL", raising=False)
     (tmp_path / ".env").write_text(
-        'NEMOTRON_BASE_URL=http://10.1.2.3:8010/v1\n',
+        "NEMOTRON_BASE_URL=http://10.1.2.3:8010/v1\n",
         encoding="utf-8",
     )
 
@@ -126,7 +126,7 @@ def test_process_environment_overrides_dotenv(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("NEMOTRON_BASE_URL", "http://127.0.0.1:8010/v1")
     (tmp_path / ".env").write_text(
-        'NEMOTRON_BASE_URL=http://127.0.0.1:9000/v1\n',
+        "NEMOTRON_BASE_URL=http://127.0.0.1:9000/v1\n",
         encoding="utf-8",
     )
 

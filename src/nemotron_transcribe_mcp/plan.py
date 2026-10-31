@@ -174,7 +174,11 @@ def _assignment(
                 best_maps.append(mapping)
     if len(best_maps) != 1:
         return None, 0.0
-    mapping = {speaker: partner for speaker, partner in best_maps[0].items() if counts.get((speaker, partner), 0)}
+    mapping = {
+        speaker: partner
+        for speaker, partner in best_maps[0].items()
+        if counts.get((speaker, partner), 0)
+    }
     if set(mapping) != set(rights):
         settled = sum(counts[(speaker, mapping[speaker])] for speaker in mapping)
         return None, settled / total

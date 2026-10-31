@@ -15,6 +15,7 @@ def _data_root() -> Path:
         return root
     return Path(user_data_dir("nemotron-transcribe-mcp", ensure_exists=True))
 
+
 _HOSTS = {"youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
 _ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 

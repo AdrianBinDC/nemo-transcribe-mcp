@@ -165,7 +165,9 @@ async def test_translate_to_french_does_not_reuse_a_transcript(tmp_path: Path) -
 
 
 @pytest.mark.anyio
-async def test_translate_uses_the_configured_language_when_the_target_is_empty(tmp_path: Path) -> None:
+async def test_translate_uses_the_configured_language_when_the_target_is_empty(
+    tmp_path: Path,
+) -> None:
     audio = _audio(tmp_path)
     seen: list[dict[str, object]] = []
 
@@ -178,7 +180,10 @@ async def test_translate_uses_the_configured_language_when_the_target_is_empty(t
         plan=lambda path, settings, work: [(0.0, 1.0)],
         transcribe_piece=piece,
     )
-    server = build_server(jobs, Config(base_url="http://127.0.0.1:8010/v1", model="m", api_key="", target_language="fr"))
+    server = build_server(
+        jobs,
+        Config(base_url="http://127.0.0.1:8010/v1", model="m", api_key="", target_language="fr"),
+    )
 
     await server.call_tool("translate", {"path": str(audio), "wait_seconds": 2})
 
@@ -222,7 +227,9 @@ async def test_a_named_language_overrides_the_configured_one(tmp_path: Path) -> 
 
 
 @pytest.mark.anyio
-async def test_the_file_overrides_the_configured_source_when_the_call_does_not(tmp_path: Path) -> None:
+async def test_the_file_overrides_the_configured_source_when_the_call_does_not(
+    tmp_path: Path,
+) -> None:
     audio = _audio(tmp_path)
     seen: list[dict[str, object]] = []
 
@@ -255,7 +262,9 @@ async def test_the_file_overrides_the_configured_source_when_the_call_does_not(t
 
 
 @pytest.mark.anyio
-async def test_translate_call_names_the_spoken_language_and_the_written_language(tmp_path: Path) -> None:
+async def test_translate_call_names_the_spoken_language_and_the_written_language(
+    tmp_path: Path,
+) -> None:
     audio = _audio(tmp_path)
     seen: list[dict[str, object]] = []
 
@@ -294,7 +303,12 @@ async def test_translate_rejects_two_non_english_languages(tmp_path: Path) -> No
     with pytest.raises(Exception) as raised:
         await server.call_tool(
             "translate",
-            {"path": str(audio), "source_language": "pl", "target_language": "th", "wait_seconds": 2},
+            {
+                "path": str(audio),
+                "source_language": "pl",
+                "target_language": "th",
+                "wait_seconds": 2,
+            },
         )
     assert str(raised.value.__cause__) == (
         "Polish to Thai is not supported. The source or destination must be English."
@@ -408,12 +422,18 @@ async def test_a_slow_file_returns_a_job_the_agent_can_finish(tmp_path: Path) ->
     )
     server = build_server(jobs, _config())
 
-    started = json.loads(_text(await server.call_tool("transcribe", {"path": str(audio), "wait_seconds": 0})))
+    started = json.loads(
+        _text(await server.call_tool("transcribe", {"path": str(audio), "wait_seconds": 0}))
+    )
     assert started["job_id"].startswith("j_")
     assert "get_job_status" in started["message_for_agent"]
 
     status = json.loads(
-        _text(await server.call_tool("get_job_status", {"job_id": started["job_id"], "wait_seconds": 2}))
+        _text(
+            await server.call_tool(
+                "get_job_status", {"job_id": started["job_id"], "wait_seconds": 2}
+            )
+        )
     )
     assert status["state"] == "done"
     assert _text(await server.call_tool("get_job_result", {"job_id": started["job_id"]})) == "hello"
@@ -439,12 +459,18 @@ async def test_cancel_job_stops_the_piece_that_is_running(tmp_path: Path) -> Non
         transcribe_piece=piece,
     )
     server = build_server(jobs, _config())
-    started = json.loads(_text(await server.call_tool("transcribe", {"path": str(audio), "wait_seconds": 0})))
+    started = json.loads(
+        _text(await server.call_tool("transcribe", {"path": str(audio), "wait_seconds": 0}))
+    )
     assert entered.wait(1)
 
     await server.call_tool("cancel_job", {"job_id": started["job_id"]})
     status = json.loads(
-        _text(await server.call_tool("get_job_status", {"job_id": started["job_id"], "wait_seconds": 2}))
+        _text(
+            await server.call_tool(
+                "get_job_status", {"job_id": started["job_id"], "wait_seconds": 2}
+            )
+        )
     )
     assert status["state"] == "cancelled"
     jobs.close()
@@ -452,7 +478,11 @@ async def test_cancel_job_stops_the_piece_that_is_running(tmp_path: Path) -> Non
 
 @pytest.mark.anyio
 async def test_list_languages_returns_the_support_levels(tmp_path: Path) -> None:
-    jobs = Jobs(tmp_path / "jobs.db", plan=lambda path, settings, work: [(0.0, 1.0)], transcribe_piece=lambda *args: "")
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=lambda *args: "",
+    )
     server = build_server(jobs, _config())
     rows = json.loads(_text(await server.call_tool("list_languages", {})))
     french = next(row for row in rows if row["name"] == "French")

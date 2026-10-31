@@ -1,0 +1,12 @@
+{
+  "name": "nemotron-transcribe-mcp",
+  "private": true,
+  "description": "YAML formatting only (Python lint/format is Ruff).",
+  "scripts": {
+    "format:yaml": "prettier --write \"**/*.{yaml,yml}\"",
+    "check:yaml": "prettier --check \"**/*.{yaml,yml}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

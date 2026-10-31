@@ -31,7 +31,9 @@ def _idem_key(path: Path, settings: dict[str, object]) -> str:
     first = data[:window]
     last = data[-window:] if data else b""
     source = hashlib.sha256(f"{len(data)}:".encode() + first + b":" + last).hexdigest()
-    body = json.dumps({"settings": settings, "source": source}, sort_keys=True, separators=(",", ":"))
+    body = json.dumps(
+        {"settings": settings, "source": source}, sort_keys=True, separators=(",", ":")
+    )
     return hashlib.sha256(body.encode()).hexdigest()
 
 
@@ -87,7 +89,9 @@ class JobStore:
 
     def get(self, job_id: str) -> Job:
         with self._lock:
-            row = self._conn.execute("SELECT id, state FROM jobs WHERE id = ?", (job_id,)).fetchone()
+            row = self._conn.execute(
+                "SELECT id, state FROM jobs WHERE id = ?", (job_id,)
+            ).fetchone()
         if row is None:
             raise KeyError("missing")
         return Job(row["id"], cached=row["state"] == "done", state=row["state"])
@@ -128,7 +132,9 @@ class JobStore:
 
     def result_text(self, job_id: str) -> str:
         with self._lock:
-            row = self._conn.execute("SELECT result_text FROM jobs WHERE id = ?", (job_id,)).fetchone()
+            row = self._conn.execute(
+                "SELECT result_text FROM jobs WHERE id = ?", (job_id,)
+            ).fetchone()
         if row is None:
             raise KeyError("missing")
         return row["result_text"] or ""
@@ -345,7 +351,12 @@ class Jobs:
                             self._prepare(audio, settings, folder)
                         spans = self._plan(audio, settings, folder)
 
-                        def one(start_s: float, end_s: float, cancelled: threading.Event, work_path: Path) -> str:
+                        def one(
+                            start_s: float,
+                            end_s: float,
+                            cancelled: threading.Event,
+                            work_path: Path,
+                        ) -> str:
                             return self._transcribe_piece(
                                 audio, settings, start_s, end_s, cancelled, work_path
                             )

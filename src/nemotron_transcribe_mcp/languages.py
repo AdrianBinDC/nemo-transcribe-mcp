@@ -125,5 +125,7 @@ def translation_pair(target_language: str, source_language: str = "English") -> 
             f"{source_name} to {target_name} is not supported. The source or destination must be English."
         )
     if source_name == "English" and target_name == "English":
-        raise ValueError("English to English is not supported. One language must be other than English.")
+        raise ValueError(
+            "English to English is not supported. One language must be other than English."
+        )
     return source_name, target_name

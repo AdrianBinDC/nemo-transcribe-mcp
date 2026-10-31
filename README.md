@@ -160,10 +160,16 @@ Cursor can launch it from this directory:
 
 Ask the client to transcribe a file path. The tool is `transcribe`.
 
-## Tests
+## Tests and lint
 
 ```bash
 uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+npm install
+npm run check:yaml
 ```
+
+Ruff covers Python. Prettier covers YAML (`compose.yaml`, `prompts.yaml`, `languages.yaml`).
 
 The tests do not call a model. They do need `ffmpeg` and `ffprobe`.

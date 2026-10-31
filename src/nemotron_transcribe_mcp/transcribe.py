@@ -11,7 +11,12 @@ import httpx
 from nemotron_transcribe_mcp.audio import detect_silences, normalize_to_pcm, slice_pcm
 from nemotron_transcribe_mcp.config import Config
 from nemotron_transcribe_mcp.logsetup import get_logger
-from nemotron_transcribe_mcp.plan import Piece, plan_pieces, speech_window, stitch_transcripts
+from nemotron_transcribe_mcp.plan import (
+    Piece,
+    plan_pieces,
+    speech_window,
+    stitch_transcripts,
+)
 from nemotron_transcribe_mcp.prompts import prompt_for
 from nemotron_transcribe_mcp.tokens import output_token_cap
 
@@ -86,9 +91,7 @@ def _post_transcript(
     messages: list[dict[str, object]] = []
     if system:
         messages.append({"role": "system", "content": system})
-    messages.append(
-        {"role": "user", "content": [{"type": "text", "text": user_text}, audio_part]}
-    )
+    messages.append({"role": "user", "content": [{"type": "text", "text": user_text}, audio_part]})
     if reasoning:
         payload: dict[str, object] = {
             "model": config.model,
@@ -205,7 +208,9 @@ def _transcribe_span(
     return text
 
 
-def prepare_language_clip(path: Path, work: Path, *, length_s: float = 10) -> list[tuple[float, float]]:
+def prepare_language_clip(
+    path: Path, work: Path, *, length_s: float = 10
+) -> list[tuple[float, float]]:
     if not path.is_file():
         raise FileNotFoundError(f"No file at {path}")
     if length_s <= 0:
