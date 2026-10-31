@@ -1,3 +1,4 @@
+.worktrees/
 tests/audio/
 .venv/
 node_modules/
