@@ -1,0 +1,55 @@
+# Runs on every pull request and on pushes to main.
+# Each step is named so the Actions log matches what you run locally.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install Python package and dev tools
+        run: uv sync --group dev
+
+      - name: Install ffmpeg for tests
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Check Python with Ruff
+        run: uv run ruff check .
+
+      - name: Check Python formatting with Ruff
+        run: uv run ruff format --check .
+
+      - name: Run the test suite
+        run: uv run pytest -q
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install Prettier
+        run: npm ci
+
+      - name: Check YAML with Prettier
+        run: npm run check:yaml

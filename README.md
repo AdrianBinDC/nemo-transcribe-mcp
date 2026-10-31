@@ -172,4 +172,6 @@ npm run check:yaml
 
 Ruff covers Python. Prettier covers YAML (`compose.yaml`, `prompts.yaml`, `languages.yaml`).
 
+The same checks run in GitHub Actions on every pull request (workflow: `.github/workflows/ci.yml`).
+
 The tests do not call a model. They do need `ffmpeg` and `ffprobe`.
