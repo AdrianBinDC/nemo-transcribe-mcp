@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -16,6 +17,7 @@ async def test_no_arguments_serves_mcp_and_logs_the_endpoint_on_stderr(tmp_path:
             args=[],
             env={
                 "NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1",
+                "NEMOTRON_LOG_FORMAT": "json",
                 "XDG_CONFIG_HOME": str(tmp_path / "empty-config"),
             },
         )
@@ -25,7 +27,12 @@ async def test_no_arguments_serves_mcp_and_logs_the_endpoint_on_stderr(tmp_path:
 
     assert result.server_info.name == "nemotron-transcribe"
     stderr = err_path.read_text(encoding="utf-8")
-    assert "http://127.0.0.1:8010/v1" in stderr
+    started = next(
+        json.loads(line)
+        for line in stderr.splitlines()
+        if line.startswith("{") and '"server_started"' in line
+    )
+    assert started["host"] == "127.0.0.1"
 
 
 @pytest.mark.anyio

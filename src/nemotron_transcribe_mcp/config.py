@@ -11,11 +11,16 @@ from platformdirs import user_config_dir
 DEFAULT_MODEL = "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4"
 
 
+LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR"}
+
+
 @dataclass(frozen=True)
 class Config:
     base_url: str
     model: str
     api_key: str
+    log_level: str = "INFO"
+    log_format: str = "json"
 
 
 def default_config_path() -> Path:
@@ -62,8 +67,16 @@ def load_config(
         raise ValueError(
             "NEMOTRON_BASE_URL is not set. Copy .env.example to .env and set the address of your Transcribe server."
         )
+    log_level = pick("NEMOTRON_LOG_LEVEL", "log_level", "INFO").upper()
+    if log_level not in LOG_LEVELS:
+        raise ValueError("NEMOTRON_LOG_LEVEL must be DEBUG, INFO, WARNING, or ERROR.")
+    log_format = pick("NEMOTRON_LOG_FORMAT", "log_format", "json").lower()
+    if log_format not in {"json", "text"}:
+        raise ValueError("NEMOTRON_LOG_FORMAT must be json or text.")
     return Config(
         base_url=base_url,
         model=pick("NEMOTRON_MODEL", "model", DEFAULT_MODEL),
         api_key=pick("NEMOTRON_API_KEY", "api_key", ""),
+        log_level=log_level,
+        log_format=log_format,
     )

@@ -2,17 +2,20 @@ import base64
 import json
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 import httpx
 
 from nemotron_transcribe_mcp.audio import detect_silences, normalize_to_pcm, slice_pcm
 from nemotron_transcribe_mcp.config import Config
+from nemotron_transcribe_mcp.logsetup import get_logger
 from nemotron_transcribe_mcp.plan import Piece, plan_pieces, stitch_transcripts
 from nemotron_transcribe_mcp.prompts import verbatim_prompt
 from nemotron_transcribe_mcp.tokens import output_token_cap
 
 HARD_MAX_S = 3300
+log = get_logger("transcribe")
 
 
 class IncompleteTranscript(Exception):
@@ -109,16 +112,19 @@ def _transcribe_span(
 ) -> str:
     dest = work / f"{label}.wav"
     slice_pcm(source, dest, start_s, end_s)
+    audio_s = _duration_s(dest)
+    started = time.monotonic()
     try:
-        return _post_transcript(
+        text = _post_transcript(
             client,
             config,
             url,
             headers,
             dest.read_bytes(),
-            _duration_s(dest),
+            audio_s,
         )
     except IncompleteTranscript:
+        log.warning("request_cut_off", audio_s=round(audio_s, 3))
         if not can_split:
             raise
         mid_s = start_s + (end_s - start_s) / 2
@@ -129,6 +135,12 @@ def _transcribe_span(
             client, config, url, headers, source, work, mid_s, end_s, f"{label}b", can_split=False
         )
         return stitch_transcripts([left, right])
+    log.info(
+        "request_done",
+        audio_s=round(audio_s, 3),
+        duration_ms=round((time.monotonic() - started) * 1000, 1),
+    )
+    return text
 
 
 def transcribe_file(
@@ -149,7 +161,14 @@ def transcribe_file(
         work = Path(folder)
         wav_path = work / "norm.wav"
         normalize_to_pcm(path, wav_path)
-        pieces = _pieces_for(wav_path, _duration_s(wav_path), hard_max_s, speakers)
+        duration_s = _duration_s(wav_path)
+        pieces = _pieces_for(wav_path, duration_s, hard_max_s, speakers)
+        log.info(
+            "pieces_planned",
+            pieces=len(pieces),
+            audio_s=round(duration_s, 3),
+            hard_cuts=sum(piece.follows_hard_cut for piece in pieces),
+        )
         with httpx.Client(transport=transport, timeout=1800.0) as client:
             parts = [
                 _transcribe_span(

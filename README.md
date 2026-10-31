@@ -27,7 +27,7 @@ Settings are read in this order: environment variables, then `.env` in the worki
 uv run nemotron-transcribe-mcp
 ```
 
-With no arguments this is an MCP server on stdio. Log lines go to stderr.
+With no arguments this is an MCP server on stdio. Log lines go to stderr. `NEMOTRON_LOG_LEVEL` in `.env` sets how much is written. The default format is one JSON object per line, so `docker logs` stays readable. Set `NEMOTRON_LOG_FORMAT=text` for a plain line in a terminal.
 
 A Cursor project can launch it from this directory:
 

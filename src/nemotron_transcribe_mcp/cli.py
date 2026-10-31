@@ -1,27 +1,24 @@
-import logging
-import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 from mcp.server import MCPServer
 
 from nemotron_transcribe_mcp.config import load_config
+from nemotron_transcribe_mcp.logsetup import configure_logging, get_logger
 from nemotron_transcribe_mcp.transcribe import IncompleteTranscript, transcribe_file
 
-log = logging.getLogger("nemotron_transcribe_mcp")
+log = get_logger("server")
 
 
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(message)s",
-        stream=sys.stderr,
-        force=True,
-    )
     try:
         config = load_config()
     except ValueError as exc:
-        print(exc, file=sys.stderr)
+        configure_logging("INFO")
+        get_logger("server").error("config_invalid", message=str(exc))
         raise SystemExit(1) from exc
+    configure_logging(config.log_level, fmt=config.log_format, secrets=[config.api_key])
+    log.info("server_started", host=urlparse(config.base_url).hostname or "")
     server = MCPServer(
         name="nemotron-transcribe",
         instructions=(
@@ -51,5 +48,4 @@ def main() -> None:
         except IncompleteTranscript as exc:
             raise RuntimeError(f"transcript was cut off: {exc.text}") from exc
 
-    log.info("endpoint %s", config.base_url)
     server.run(transport="stdio")

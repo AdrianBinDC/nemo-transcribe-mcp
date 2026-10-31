@@ -42,6 +42,31 @@ def test_saved_config_is_used_when_environment_is_empty(tmp_path: Path) -> None:
     assert config.api_key == "file-key"
 
 
+def test_log_level_comes_from_the_environment(tmp_path: Path) -> None:
+    config = load_config(
+        {
+            "NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1",
+            "NEMOTRON_LOG_LEVEL": "debug",
+            "NEMOTRON_LOG_FORMAT": "text",
+        },
+        path=tmp_path / "missing.toml",
+    )
+
+    assert config.log_level == "DEBUG"
+    assert config.log_format == "text"
+
+
+def test_unknown_log_level_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="NEMOTRON_LOG_LEVEL"):
+        load_config(
+            {
+                "NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1",
+                "NEMOTRON_LOG_LEVEL": "loud",
+            },
+            path=tmp_path / "missing.toml",
+        )
+
+
 def test_missing_base_url_names_the_env_file(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=r"NEMOTRON_BASE_URL"):
         load_config({}, path=tmp_path / "missing.toml")
