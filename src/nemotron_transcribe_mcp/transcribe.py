@@ -2,6 +2,7 @@ import base64
 import json
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -143,6 +144,78 @@ def _transcribe_span(
     return text
 
 
+def prepare_pieces(
+    path: Path,
+    work: Path,
+    *,
+    speakers: bool,
+    hard_max_s: float = HARD_MAX_S,
+) -> list[tuple[float, float]]:
+    if not path.is_file():
+        raise FileNotFoundError(f"No file at {path}")
+    wav_path = work / "norm.wav"
+    normalize_to_pcm(path, wav_path)
+    duration_s = _duration_s(wav_path)
+    pieces = _pieces_for(wav_path, duration_s, hard_max_s, speakers)
+    log.info(
+        "pieces_planned",
+        pieces=len(pieces),
+        audio_s=round(duration_s, 3),
+        hard_cuts=sum(piece.follows_hard_cut for piece in pieces),
+    )
+    return [(piece.start_s, piece.end_s) for piece in pieces]
+
+
+def transcribe_prepared_span(
+    source: Path,
+    work: Path,
+    start_s: float,
+    end_s: float,
+    *,
+    config: Config,
+    cancelled: threading.Event,
+) -> str:
+    if cancelled.is_set():
+        raise RuntimeError("aborted")
+    wav_path = work / "norm.wav"
+    if not wav_path.is_file():
+        normalize_to_pcm(source, wav_path)
+    headers: dict[str, str] = {}
+    if config.api_key:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+    url = f"{config.base_url}/chat/completions"
+    label = f"span-{start_s:.3f}-{end_s:.3f}"
+    with httpx.Client(timeout=1800.0) as client:
+        finished = threading.Event()
+
+        def watch() -> None:
+            while not finished.is_set():
+                if cancelled.wait(0.2):
+                    client.close()
+                    return
+
+        threading.Thread(target=watch, daemon=True).start()
+        try:
+            return _transcribe_span(
+                client,
+                config,
+                url,
+                headers,
+                wav_path,
+                work,
+                start_s,
+                end_s,
+                label,
+                can_split=True,
+            )
+        except Exception:
+            if cancelled.is_set():
+                raise RuntimeError("aborted") from None
+            raise
+        finally:
+            finished.set()
+
+
 def transcribe_file(
     path: Path,
     *,
@@ -151,24 +224,14 @@ def transcribe_file(
     hard_max_s: float = HARD_MAX_S,
     speakers: bool = False,
 ) -> str:
-    if not path.is_file():
-        raise FileNotFoundError(f"No file at {path}")
     headers: dict[str, str] = {}
     if config.api_key:
         headers["Authorization"] = f"Bearer {config.api_key}"
     url = f"{config.base_url}/chat/completions"
     with tempfile.TemporaryDirectory() as folder:
         work = Path(folder)
+        spans = prepare_pieces(path, work, speakers=speakers, hard_max_s=hard_max_s)
         wav_path = work / "norm.wav"
-        normalize_to_pcm(path, wav_path)
-        duration_s = _duration_s(wav_path)
-        pieces = _pieces_for(wav_path, duration_s, hard_max_s, speakers)
-        log.info(
-            "pieces_planned",
-            pieces=len(pieces),
-            audio_s=round(duration_s, 3),
-            hard_cuts=sum(piece.follows_hard_cut for piece in pieces),
-        )
         with httpx.Client(transport=transport, timeout=1800.0) as client:
             parts = [
                 _transcribe_span(
@@ -178,11 +241,11 @@ def transcribe_file(
                     headers,
                     wav_path,
                     work,
-                    piece.start_s,
-                    piece.end_s,
+                    start_s,
+                    end_s,
                     f"piece{index}",
                     can_split=True,
                 )
-                for index, piece in enumerate(pieces)
+                for index, (start_s, end_s) in enumerate(spans)
             ]
     return stitch_transcripts(parts)

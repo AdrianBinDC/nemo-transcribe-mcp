@@ -19,6 +19,7 @@ async def test_no_arguments_serves_mcp_and_logs_the_endpoint_on_stderr(tmp_path:
                 "NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1",
                 "NEMOTRON_LOG_FORMAT": "json",
                 "XDG_CONFIG_HOME": str(tmp_path / "empty-config"),
+                "XDG_DATA_HOME": str(tmp_path / "data"),
             },
         )
         async with stdio_client(params, errlog=errlog) as (read, write):
@@ -46,6 +47,7 @@ async def test_server_offers_a_transcribe_tool(tmp_path: Path) -> None:
             env={
                 "NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1",
                 "XDG_CONFIG_HOME": str(tmp_path / "empty-config"),
+                "XDG_DATA_HOME": str(tmp_path / "data"),
             },
         )
         async with stdio_client(params, errlog=errlog) as (read, write):
@@ -53,7 +55,10 @@ async def test_server_offers_a_transcribe_tool(tmp_path: Path) -> None:
                 await session.initialize()
                 listed = await session.list_tools()
 
+    names = {item.name for item in listed.tools}
+    assert names >= {"transcribe", "get_job_status", "get_job_result", "list_jobs", "cancel_job"}
     tool = next(item for item in listed.tools if item.name == "transcribe")
     description = (tool.description or "").lower()
     assert "audio" in description
     assert "pause" in description
+    assert "get_job_status" in description
