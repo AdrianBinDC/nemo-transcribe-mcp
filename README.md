@@ -53,11 +53,11 @@ Sample call:
 ```python
 server = MCPServer(name="nemo-transcribe", instructions="...")
 
+
 @server.tool(description="Speech to text for one audio file or one YouTube link. ...")
 def transcribe(
     path: str, speakers: int = 0, style: str = "verbatim", wait_seconds: float = 25
-) -> str:
-    ...
+) -> str: ...
 ```
 
 Typed tool args come from the Python signatures; the client sees them as the MCP input schema.
