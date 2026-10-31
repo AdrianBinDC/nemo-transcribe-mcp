@@ -11,7 +11,7 @@ import httpx
 from nemotron_transcribe_mcp.audio import detect_silences, normalize_to_pcm, slice_pcm
 from nemotron_transcribe_mcp.config import Config
 from nemotron_transcribe_mcp.logsetup import get_logger
-from nemotron_transcribe_mcp.plan import Piece, plan_pieces, stitch_transcripts
+from nemotron_transcribe_mcp.plan import Piece, plan_pieces, speech_window, stitch_transcripts
 from nemotron_transcribe_mcp.prompts import prompt_for
 from nemotron_transcribe_mcp.tokens import output_token_cap
 
@@ -170,6 +170,28 @@ def _transcribe_span(
         duration_ms=round((time.monotonic() - started) * 1000, 1),
     )
     return text
+
+
+def prepare_language_clip(path: Path, work: Path, *, length_s: float = 10) -> list[tuple[float, float]]:
+    if not path.is_file():
+        raise FileNotFoundError(f"No file at {path}")
+    if length_s <= 0:
+        raise ValueError("clip_seconds must be greater than 0")
+    wav_path = work / "norm.wav"
+    normalize_to_pcm(path, wav_path, max_seconds=120)
+    duration_s = _duration_s(wav_path)
+    start_s, end_s = speech_window(duration_s, detect_silences(wav_path), length_s=length_s)
+    return [(start_s, end_s)]
+
+
+def prepare_clip(path: Path, work: Path, *, max_seconds: float) -> list[tuple[float, float]]:
+    if not path.is_file():
+        raise FileNotFoundError(f"No file at {path}")
+    if max_seconds <= 0:
+        raise ValueError("clip_seconds must be greater than 0")
+    wav_path = work / "norm.wav"
+    normalize_to_pcm(path, wav_path, max_seconds=max_seconds)
+    return [(0.0, _duration_s(wav_path))]
 
 
 def prepare_pieces(

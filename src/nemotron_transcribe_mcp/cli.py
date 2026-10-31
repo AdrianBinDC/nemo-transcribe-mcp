@@ -1,5 +1,6 @@
 import json
 import sys
+import threading
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -8,12 +9,19 @@ from platformdirs import user_data_dir
 
 from nemotron_transcribe_mcp.config import Config, default_config_path, load_config
 from nemotron_transcribe_mcp.jobs import Jobs
-from nemotron_transcribe_mcp.languages import translation_pair
+from nemotron_transcribe_mcp.languages import (
+    apply_detected_source,
+    language_id_note,
+    supported_languages,
+    translation_name,
+    translation_pair,
+)
 from nemotron_transcribe_mcp.logsetup import configure_logging, get_logger
-from nemotron_transcribe_mcp.prompts import prompt_for, prompts_version, translation_prompt
+from nemotron_transcribe_mcp.prompts import language_id_prompt, prompt_for, prompts_version, translation_prompt
 from nemotron_transcribe_mcp.setupcheck import run_doctor, run_init
 from nemotron_transcribe_mcp.transcribe import (
     IncompleteTranscript,
+    prepare_language_clip,
     prepare_pieces,
     transcribe_prepared_span,
 )
@@ -31,7 +39,12 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
         instructions=(
             "Talks to an already-running Nemotron 3.5 Transcribe endpoint. "
             "Does not start the model. Use transcribe for one audio file. "
-            "Use translate to turn speech into another language. One side must be English. "
+            "Use translate to write speech in another language. "
+            "source_language is the language spoken in the file. "
+            "target_language is the language the words should be written in. "
+            "One of those two must be English. "
+            "Use identify_language to name the spoken language. "
+            "Use list_languages to see each language and how strong the support is. "
             "A long file returns a job id. Call get_job_status, then get_job_result. "
             "Do not poll in a loop."
         ),
@@ -87,10 +100,14 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
 
     @server.tool(
         description=(
-            "Translate speech in one audio file into another language. "
-            "One side must be English. "
-            "Pass target_language as a name or a code, such as French or fr. "
-            "source_language defaults to English. "
+            "Write the speech in one audio file in another language. "
+            "source_language is the language spoken in the file, such as Polish or pl. "
+            "target_language is the language the words should be written in, such as English or en. "
+            "Pass both when you know them. "
+            "A language passed here overrides NEMOTRON_SOURCE_LANGUAGE and NEMOTRON_TARGET_LANGUAGE. "
+            "If source_language is empty, the language heard in the file overrides NEMOTRON_SOURCE_LANGUAGE. "
+            "Leave target_language empty to use NEMOTRON_TARGET_LANGUAGE. "
+            "One of the two languages must be English. "
             "A long file is cut at a pause and sent one piece at a time. "
             "Waits wait_seconds (default 25). If it is still running, returns a job id. "
             "Tell the user, then call get_job_status. Do not poll in a loop."
@@ -99,13 +116,23 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
     )
     def translate(
         path: str,
-        target_language: str,
-        source_language: str = "English",
+        target_language: str = "",
+        source_language: str = "",
         wait_seconds: float = 25,
     ) -> str:
         if wait_seconds < 0:
             raise ValueError("wait_seconds must be 0 or more")
-        source_name, target_name = translation_pair(target_language, source_language)
+        spoken = source_language.strip()
+        written = target_language.strip() or config.target_language
+        if spoken:
+            source_name, target_name = translation_pair(written, spoken)
+            detect_source = False
+            fallback_source = ""
+        else:
+            source_name = ""
+            target_name = translation_name(written)
+            detect_source = True
+            fallback_source = config.source_language
         try:
             outcome = jobs.transcribe(
                 Path(path).expanduser(),
@@ -114,6 +141,8 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
                     "style": "translation",
                     "source_language": source_name,
                     "target_language": target_name,
+                    "detect_source": detect_source,
+                    "fallback_source": fallback_source,
                     "prompt": translation_prompt(target_name),
                     "model": config.model,
                     "prompts_version": prompts_version(),
@@ -127,6 +156,63 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
         if outcome.get("state") == "failed":
             raise RuntimeError(str(jobs.result(str(outcome["job_id"]))))
         return json.dumps(outcome)
+
+    @server.tool(
+        description=(
+            "Say which language is spoken in one audio file. "
+            "Returns one label, such as en_us. "
+            "Listens to about 10 seconds of speech, skipping a pause at the start. "
+            "Less reliable for Latvian and Slovenian. "
+            "Not a transcript."
+        ),
+        structured_output=False,
+    )
+    def identify_language(
+        path: str,
+        candidates: list[str] | None = None,
+        label_set: str = "fleurs",
+        clip_seconds: float = 10,
+        wait_seconds: float = 25,
+    ) -> str:
+        if not 1 <= clip_seconds <= 30:
+            raise ValueError("clip_seconds must be from 1 to 30")
+        if wait_seconds < 0:
+            raise ValueError("wait_seconds must be 0 or more")
+        prompt = language_id_prompt(label_set, candidates)
+        try:
+            outcome = jobs.transcribe(
+                Path(path).expanduser(),
+                {
+                    "speakers": 0,
+                    "style": "language_id",
+                    "label_set": "candidates" if candidates else label_set,
+                    "clip_seconds": clip_seconds,
+                    "prompt": prompt,
+                    "model": config.model,
+                    "prompts_version": prompts_version(),
+                },
+                wait_seconds=wait_seconds,
+            )
+        except IncompleteTranscript as exc:
+            raise RuntimeError(f"transcript was cut off: {exc.text}") from exc
+        if isinstance(outcome, str):
+            return outcome
+        if outcome.get("state") == "failed":
+            raise RuntimeError(str(jobs.result(str(outcome["job_id"]))))
+        return json.dumps(outcome)
+
+    @server.tool(
+        description=(
+            "Languages this model can handle, and how strong that support is. "
+            "level is leading, production_ready, or supported. "
+            "translate is yes when that language can be one side of an English translation. "
+            "identify is yes, low, or no. Latvian and Slovenian are low. "
+            "Norwegian is listed, but the card only scored transcription. It did not mark it supported."
+        ),
+        structured_output=False,
+    )
+    def list_languages() -> str:
+        return json.dumps(supported_languages())
 
     @server.tool(
         description=(
@@ -195,12 +281,30 @@ def main() -> None:
     configure_logging(config.log_level, fmt=config.log_format, secrets=[config.api_key])
     log.info("server_started", host=urlparse(config.base_url).hostname or "")
 
+    def prepare(path: Path, settings: dict[str, object], work: Path) -> None:
+        if settings.get("style") != "translation" or not settings.get("detect_source"):
+            return
+        spans = prepare_language_clip(path, work, length_s=10)
+        label = transcribe_prepared_span(
+            path,
+            work,
+            spans[0][0],
+            spans[0][1],
+            config=config,
+            cancelled=threading.Event(),
+            style="language_id",
+            prompt=language_id_prompt(),
+        )
+        apply_detected_source(settings, label)
+
     def plan(path: Path, settings: dict[str, object], work: Path) -> list[tuple[float, float]]:
+        if settings.get("style") == "language_id":
+            return prepare_language_clip(path, work, length_s=float(settings["clip_seconds"]))
         return prepare_pieces(path, work, speakers=int(settings["speakers"]) >= 2)
 
     def piece(path, settings, start, end, cancelled, work) -> str:
         try:
-            return transcribe_prepared_span(
+            text = transcribe_prepared_span(
                 path,
                 work,
                 start,
@@ -210,8 +314,11 @@ def main() -> None:
                 style=str(settings.get("style", "verbatim")),
                 prompt=settings.get("prompt") if isinstance(settings.get("prompt"), str) else None,
             )
+            if settings.get("style") == "language_id":
+                return language_id_note(text)
+            return text
         except IncompleteTranscript as exc:
             raise RuntimeError(f"transcript was cut off: {exc.text}") from exc
 
-    jobs = Jobs(jobs_db_path(), plan=plan, transcribe_piece=piece)
+    jobs = Jobs(jobs_db_path(), plan=plan, transcribe_piece=piece, prepare=prepare)
     build_server(jobs, config).run(transport="stdio")

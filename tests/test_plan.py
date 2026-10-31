@@ -1,4 +1,14 @@
-from nemotron_transcribe_mcp.plan import Silence, plan_pieces, stitch_transcripts
+from nemotron_transcribe_mcp.plan import Silence, plan_pieces, speech_window, stitch_transcripts
+
+
+def test_language_sample_skips_the_opening_pause_and_keeps_ten_seconds() -> None:
+    window = speech_window(80, [Silence(0, 12)], length_s=10)
+
+    assert window == (12, 22)
+
+
+def test_language_sample_uses_the_start_when_speech_is_already_there() -> None:
+    assert speech_window(40, [], length_s=10) == (0, 10)
 
 
 def test_cuts_at_the_longest_pause_in_the_last_fifth() -> None:

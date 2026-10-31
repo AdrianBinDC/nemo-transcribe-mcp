@@ -30,6 +30,27 @@ class Piece:
     follows_hard_cut: bool = False
 
 
+def speech_window(
+    duration_s: float,
+    silences: list[Silence],
+    *,
+    length_s: float = 10,
+) -> tuple[float, float]:
+    if duration_s <= 0:
+        raise ValueError("clip has no audio")
+    spans: list[tuple[float, float]] = []
+    cursor = 0.0
+    for silence in silences:
+        if silence.start_s > cursor:
+            spans.append((cursor, min(silence.start_s, duration_s)))
+        cursor = max(cursor, silence.end_s)
+    if cursor < duration_s:
+        spans.append((cursor, duration_s))
+    usable = [span for span in spans if span[1] - span[0] >= 1]
+    start, end = (usable or spans or [(0.0, duration_s)])[0]
+    return start, min(end, start + length_s)
+
+
 def plan_pieces(
     duration_s: float,
     silences: list[Silence],

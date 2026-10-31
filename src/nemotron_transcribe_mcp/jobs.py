@@ -257,10 +257,11 @@ def run_job(
 
 
 class Jobs:
-    def __init__(self, path: Path, *, plan, transcribe_piece) -> None:
+    def __init__(self, path: Path, *, plan, transcribe_piece, prepare=None) -> None:
         self._store = JobStore(path)
         self._plan = plan
         self._transcribe_piece = transcribe_piece
+        self._prepare = prepare
         self._threads: dict[str, threading.Thread] = {}
         self._threads_lock = threading.Lock()
         self._slot = threading.Lock()
@@ -340,6 +341,8 @@ class Jobs:
                         return
                     folder = Path(tempfile.mkdtemp(prefix="nemotron-job-"))
                     try:
+                        if self._prepare is not None:
+                            self._prepare(audio, settings, folder)
                         spans = self._plan(audio, settings, folder)
 
                         def one(start_s: float, end_s: float, cancelled: threading.Event, work_path: Path) -> str:

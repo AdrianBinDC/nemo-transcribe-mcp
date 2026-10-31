@@ -11,3 +11,9 @@ templates:
     user: "Transcribe word for word without punctuation. Write numbers as spoken words and keep individually spoken letters separate."
   - id: translation
     user: "Please translate the given speech to {target_language}."
+  - id: language_id_fleurs
+    user: "Identify the language spoken in this audio. Respond with exactly one of the following locale labels and nothing else: ar_eg, bg_bg, cmn_hans_cn, hr_hr, cs_cz, da_dk, nl_nl, en_us, et_ee, fil_ph, fi_fi, fr_fr, de_de, el_gr, he_il, hi_in, hu_hu, id_id, it_it, ja_jp, ko_kr, lv_lv, lt_lt, mt_mt, pl_pl, pt_br, ro_ro, ru_ru, sk_sk, sl_si, es_419, sv_se, th_th, tr_tr, uk_ua, vi_vn."
+  - id: language_id_voxlingua
+    user: "Identify the language spoken in this audio. Respond with exactly one of the following language labels and nothing else: ar, da, de, el, en, es, et, fi, fr, hr, hu, it, ja, lt, lv, nl, pl, pt, ru, sl, sv, tr, uk, zh."
+  - id: language_id_candidates
+    user: "Identify the spoken language. Respond with exactly one label from {labels} and nothing else."

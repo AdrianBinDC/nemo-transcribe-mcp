@@ -4,16 +4,20 @@ from pathlib import Path
 from nemotron_transcribe_mcp.plan import Silence
 
 
-def normalize_to_pcm(source: Path, dest: Path) -> None:
-    subprocess.run(
+def normalize_to_pcm(source: Path, dest: Path, *, max_seconds: float | None = None) -> None:
+    command = [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-threads",
+        "2",
+    ]
+    if max_seconds is not None:
+        command.extend(["-t", f"{max_seconds:.3f}"])
+    command.extend(
         [
-            "ffmpeg",
-            "-nostdin",
-            "-v",
-            "error",
-            "-y",
-            "-threads",
-            "2",
             "-i",
             str(source),
             "-vn",
@@ -26,10 +30,9 @@ def normalize_to_pcm(source: Path, dest: Path) -> None:
             "-c:a",
             "pcm_s16le",
             str(dest),
-        ],
-        check=True,
-        capture_output=True,
+        ]
     )
+    subprocess.run(command, check=True, capture_output=True)
 
 
 def detect_silences(

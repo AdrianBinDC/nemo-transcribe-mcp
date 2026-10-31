@@ -11,7 +11,7 @@ import pytest
 
 from nemotron_transcribe_mcp.config import Config
 from nemotron_transcribe_mcp.plan import Silence
-from nemotron_transcribe_mcp.transcribe import IncompleteTranscript, transcribe_file
+from nemotron_transcribe_mcp.transcribe import IncompleteTranscript, prepare_clip, transcribe_file
 
 SPARK = Config(
     base_url="http://127.0.0.1:8010/v1",
@@ -195,6 +195,22 @@ def test_a_translation_prompt_is_sent_unchanged(tmp_path: Path) -> None:
 
     body = json.loads(seen["request"].content)
     assert body["messages"][0]["content"][0]["text"] == "Please translate the given speech to French."
+
+
+def test_a_language_clip_keeps_only_the_first_seconds(tmp_path: Path) -> None:
+    longer = tmp_path / "longer.wav"
+    with wave.open(str(longer), "w") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(16000)
+        handle.writeframes(b"\x00\x00" * 32000)
+    work = tmp_path / "work"
+    work.mkdir()
+
+    spans = prepare_clip(longer, work, max_seconds=1)
+
+    assert spans[0][0] == 0.0
+    assert spans[0][1] == pytest.approx(1.0, abs=0.05)
 
 
 def test_length_finish_means_the_transcript_was_cut_off(tmp_path: Path) -> None:

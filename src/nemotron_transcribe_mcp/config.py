@@ -7,6 +7,8 @@ from pathlib import Path
 from dotenv import dotenv_values, find_dotenv
 from platformdirs import user_config_dir
 
+from nemotron_transcribe_mcp.languages import language_code
+
 
 DEFAULT_MODEL = "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4"
 
@@ -21,6 +23,8 @@ class Config:
     api_key: str
     log_level: str = "INFO"
     log_format: str = "json"
+    source_language: str = ""
+    target_language: str = "en"
 
 
 def default_config_path() -> Path:
@@ -73,10 +77,22 @@ def load_config(
     log_format = pick("NEMOTRON_LOG_FORMAT", "log_format", "json").lower()
     if log_format not in {"json", "text"}:
         raise ValueError("NEMOTRON_LOG_FORMAT must be json or text.")
+    raw_source = pick("NEMOTRON_SOURCE_LANGUAGE", "source_language", "")
+    raw_target = pick("NEMOTRON_TARGET_LANGUAGE", "target_language", "en")
+    try:
+        source_language = language_code(raw_source) if raw_source else ""
+    except ValueError:
+        raise ValueError("NEMOTRON_SOURCE_LANGUAGE must be a code from .env.example, such as en or pl.") from None
+    try:
+        target_language = language_code(raw_target)
+    except ValueError:
+        raise ValueError("NEMOTRON_TARGET_LANGUAGE must be a code from .env.example, such as en or th.") from None
     return Config(
         base_url=base_url,
         model=pick("NEMOTRON_MODEL", "model", DEFAULT_MODEL),
         api_key=pick("NEMOTRON_API_KEY", "api_key", ""),
         log_level=log_level,
         log_format=log_format,
+        source_language=source_language,
+        target_language=target_language,
     )

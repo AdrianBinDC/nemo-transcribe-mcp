@@ -56,6 +56,41 @@ def test_log_level_comes_from_the_environment(tmp_path: Path) -> None:
     assert config.log_format == "text"
 
 
+def test_source_language_is_blank_and_the_written_language_defaults_to_english(tmp_path: Path) -> None:
+    config = load_config(
+        {"NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1"},
+        path=tmp_path / "missing.toml",
+    )
+
+    assert config.source_language == ""
+    assert config.target_language == "en"
+
+
+def test_language_accepts_a_code_or_a_name(tmp_path: Path) -> None:
+    config = load_config(
+        {
+            "NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1",
+            "NEMOTRON_SOURCE_LANGUAGE": "Polish",
+            "NEMOTRON_TARGET_LANGUAGE": "en",
+        },
+        path=tmp_path / "missing.toml",
+    )
+
+    assert config.source_language == "pl"
+    assert config.target_language == "en"
+
+
+def test_unknown_language_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="NEMOTRON_TARGET_LANGUAGE"):
+        load_config(
+            {
+                "NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1",
+                "NEMOTRON_TARGET_LANGUAGE": "Klingon",
+            },
+            path=tmp_path / "missing.toml",
+        )
+
+
 def test_unknown_log_level_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="NEMOTRON_LOG_LEVEL"):
         load_config(

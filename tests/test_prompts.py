@@ -1,4 +1,4 @@
-from nemotron_transcribe_mcp.prompts import prompt_for, translation_prompt, verbatim_prompt
+from nemotron_transcribe_mcp.prompts import language_id_prompt, prompt_for, translation_prompt, verbatim_prompt
 
 CARD_VERBATIM = (
     "Audio transcription. Language: as spoken. "
@@ -44,3 +44,16 @@ def test_raw_dictation_prompt_matches_the_model_card() -> None:
 
 def test_translation_prompt_names_the_target_language() -> None:
     assert translation_prompt("French") == "Please translate the given speech to French."
+
+
+def test_fleurs_language_id_prompt_matches_the_model_card() -> None:
+    prompt = language_id_prompt("fleurs")
+    assert prompt.startswith("Identify the language spoken in this audio.")
+    assert "en_us" in prompt
+    assert prompt.count(",") == 35
+
+
+def test_caller_labels_use_the_short_card_prompt() -> None:
+    assert language_id_prompt("fleurs", ["en", "fr"]) == (
+        "Identify the spoken language. Respond with exactly one label from en, fr and nothing else."
+    )

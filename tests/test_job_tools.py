@@ -164,6 +164,123 @@ async def test_translate_to_french_does_not_reuse_a_transcript(tmp_path: Path) -
 
 
 @pytest.mark.anyio
+async def test_translate_uses_the_configured_language_when_the_target_is_empty(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    seen: list[dict[str, object]] = []
+
+    def piece(path, settings, start, end, cancelled, work) -> str:
+        seen.append(settings)
+        return "bonjour"
+
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=piece,
+    )
+    server = build_server(jobs, Config(base_url="http://127.0.0.1:8010/v1", model="m", api_key="", target_language="fr"))
+
+    await server.call_tool("translate", {"path": str(audio), "wait_seconds": 2})
+
+    assert seen[0]["target_language"] == "French"
+    jobs.close()
+
+
+@pytest.mark.anyio
+async def test_a_named_language_overrides_the_configured_one(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    seen: list[dict[str, object]] = []
+
+    def piece(path, settings, start, end, cancelled, work) -> str:
+        seen.append(settings)
+        return "hello"
+
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=piece,
+    )
+    server = build_server(
+        jobs,
+        Config(
+            base_url="http://127.0.0.1:8010/v1",
+            model="m",
+            api_key="",
+            source_language="de",
+            target_language="en",
+        ),
+    )
+
+    await server.call_tool(
+        "translate",
+        {"path": str(audio), "source_language": "pl", "target_language": "en", "wait_seconds": 2},
+    )
+
+    assert seen[0]["source_language"] == "Polish"
+    assert seen[0]["detect_source"] is False
+    jobs.close()
+
+
+@pytest.mark.anyio
+async def test_the_file_overrides_the_configured_source_when_the_call_does_not(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    seen: list[dict[str, object]] = []
+
+    def piece(path, settings, start, end, cancelled, work) -> str:
+        seen.append(settings)
+        return "hello"
+
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=piece,
+    )
+    server = build_server(
+        jobs,
+        Config(
+            base_url="http://127.0.0.1:8010/v1",
+            model="m",
+            api_key="",
+            source_language="de",
+            target_language="en",
+        ),
+    )
+
+    await server.call_tool("translate", {"path": str(audio), "wait_seconds": 2})
+
+    assert seen[0]["source_language"] == ""
+    assert seen[0]["detect_source"] is True
+    assert seen[0]["fallback_source"] == "de"
+    jobs.close()
+
+
+@pytest.mark.anyio
+async def test_translate_call_names_the_spoken_language_and_the_written_language(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    seen: list[dict[str, object]] = []
+
+    def piece(path, settings, start, end, cancelled, work) -> str:
+        seen.append(settings)
+        return "hello"
+
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=piece,
+    )
+    server = build_server(jobs, _config())
+
+    await server.call_tool(
+        "translate",
+        {"path": str(audio), "source_language": "pl", "target_language": "en", "wait_seconds": 2},
+    )
+
+    assert seen[0]["source_language"] == "Polish"
+    assert seen[0]["target_language"] == "English"
+    assert seen[0]["detect_source"] is False
+    jobs.close()
+
+
+@pytest.mark.anyio
 async def test_translate_rejects_two_non_english_languages(tmp_path: Path) -> None:
     audio = _audio(tmp_path)
     jobs = Jobs(
@@ -176,9 +293,40 @@ async def test_translate_rejects_two_non_english_languages(tmp_path: Path) -> No
     with pytest.raises(Exception) as raised:
         await server.call_tool(
             "translate",
-            {"path": str(audio), "target_language": "French", "source_language": "German", "wait_seconds": 2},
+            {"path": str(audio), "source_language": "pl", "target_language": "th", "wait_seconds": 2},
         )
-    assert str(raised.value.__cause__) == "one side must be English"
+    assert str(raised.value.__cause__) == (
+        "Polish to Thai is not supported. The source or destination must be English."
+    )
+    jobs.close()
+
+
+@pytest.mark.anyio
+async def test_identify_language_sends_the_fleurs_labels(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    seen: list[dict[str, object]] = []
+
+    def piece(path, settings, start, end, cancelled, work) -> str:
+        seen.append(settings)
+        return "en_us"
+
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=piece,
+    )
+    server = build_server(jobs, _config())
+
+    result = await server.call_tool(
+        "identify_language",
+        {"path": str(audio), "wait_seconds": 2},
+    )
+
+    assert _text(result) == "en_us"
+    assert seen[0]["style"] == "language_id"
+    assert seen[0]["clip_seconds"] == 10
+    assert "en_us" in str(seen[0]["prompt"])
+    assert "fr_fr" in str(seen[0]["prompt"])
     jobs.close()
 
 
@@ -252,4 +400,15 @@ async def test_cancel_job_stops_the_piece_that_is_running(tmp_path: Path) -> Non
         _text(await server.call_tool("get_job_status", {"job_id": started["job_id"], "wait_seconds": 2}))
     )
     assert status["state"] == "cancelled"
+    jobs.close()
+
+
+@pytest.mark.anyio
+async def test_list_languages_returns_the_support_levels(tmp_path: Path) -> None:
+    jobs = Jobs(tmp_path / "jobs.db", plan=lambda path, settings, work: [(0.0, 1.0)], transcribe_piece=lambda *args: "")
+    server = build_server(jobs, _config())
+    rows = json.loads(_text(await server.call_tool("list_languages", {})))
+    french = next(row for row in rows if row["name"] == "French")
+    assert french["level"] == "leading"
+    assert french["translate"] == "yes"
     jobs.close()
