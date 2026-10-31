@@ -1,4 +1,12 @@
+import re
 from dataclasses import dataclass
+from itertools import permutations
+
+from nemotron_transcribe_mcp.logsetup import get_logger
+
+_SPEAKER = re.compile(r"<spk:(\d)>")
+_LOW_CONFIDENCE = 0.6
+log = get_logger("plan")
 
 
 @dataclass(frozen=True)
@@ -65,6 +73,9 @@ def stitch_transcripts(parts: list[str]) -> str:
         if not joined:
             joined = text
             continue
+        if _SPEAKER.search(joined) and _SPEAKER.search(text):
+            joined = _stitch_speakers(joined, text)
+            continue
         left = joined.split()
         right = text.split()
         limit = min(30, len(left), len(right))
@@ -79,3 +90,133 @@ def stitch_transcripts(parts: list[str]) -> str:
         else:
             joined = f"{joined}\n{text}"
     return joined
+
+
+def _stream(text: str) -> list[tuple[str | None, str]]:
+    speaker: str | None = None
+    rows: list[tuple[str | None, str]] = []
+    for token in text.split():
+        match = _SPEAKER.fullmatch(token)
+        if match:
+            speaker = match.group(1)
+            continue
+        rows.append((speaker, token))
+    return rows
+
+
+def _overlap_size(left: list[tuple[str | None, str]], right: list[tuple[str | None, str]]) -> int:
+    limit = min(30, len(left), len(right))
+    for size in range(limit, 0, -1):
+        if [word for _, word in left[-size:]] == [word for _, word in right[:size]]:
+            return size
+    return 0
+
+
+def _assignment(
+    left: list[tuple[str | None, str]],
+    right: list[tuple[str | None, str]],
+    size: int,
+) -> tuple[dict[str, str] | None, float]:
+    if size == 0:
+        return None, 0.0
+    counts: dict[tuple[str, str], int] = {}
+    for (left_speaker, _), (right_speaker, _) in zip(left[-size:], right[:size], strict=True):
+        if left_speaker is None or right_speaker is None:
+            continue
+        key = (right_speaker, left_speaker)
+        counts[key] = counts.get(key, 0) + 1
+    total = sum(counts.values())
+    if total == 0:
+        return None, 0.0
+    rights = sorted({pair[0] for pair in counts})
+    lefts = sorted({pair[1] for pair in counts})
+    best_score = -1
+    best_maps: list[dict[str, str]] = []
+    if len(lefts) >= len(rights):
+        choices = permutations(lefts, len(rights))
+        for choice in choices:
+            mapping = dict(zip(rights, choice, strict=True))
+            score = sum(counts.get((speaker, mapping[speaker]), 0) for speaker in rights)
+            if score > best_score:
+                best_score = score
+                best_maps = [mapping]
+            elif score == best_score:
+                best_maps.append(mapping)
+    else:
+        for chosen in permutations(rights, len(lefts)):
+            mapping = dict(zip(chosen, lefts, strict=True))
+            score = sum(counts.get((speaker, mapping[speaker]), 0) for speaker in chosen)
+            if score > best_score:
+                best_score = score
+                best_maps = [mapping]
+            elif score == best_score:
+                best_maps.append(mapping)
+    if len(best_maps) != 1:
+        return None, 0.0
+    mapping = {speaker: partner for speaker, partner in best_maps[0].items() if counts.get((speaker, partner), 0)}
+    if set(mapping) != set(rights):
+        settled = sum(counts[(speaker, mapping[speaker])] for speaker in mapping)
+        return None, settled / total
+    for speaker, partner in mapping.items():
+        chosen = counts[(speaker, partner)]
+        if any(counts.get((speaker, other), 0) >= chosen for other in lefts if other != partner):
+            return None, 0.0
+    confidence = sum(counts[(speaker, mapping[speaker])] for speaker in mapping) / total
+    if confidence < _LOW_CONFIDENCE:
+        return None, confidence
+    return mapping, confidence
+
+
+def _fresh(used: set[str], mapping: dict[str, str]) -> str:
+    taken = used | set(mapping.values())
+    for number in range(8):
+        label = str(number)
+        if label not in taken:
+            return label
+    raise ValueError("more than 8 speakers")
+
+
+def _render(
+    stream: list[tuple[str | None, str]],
+    mapping: dict[str, str] | None,
+    used: set[str],
+) -> str:
+    tokens: list[str] = []
+    current: str | None = None
+    for speaker, word in stream:
+        if speaker is None:
+            tokens.append(word)
+            current = None
+            continue
+        if mapping is None:
+            label = speaker
+        else:
+            label = mapping.get(speaker)
+            if label is None:
+                label = _fresh(used, mapping)
+                mapping[speaker] = label
+        if label != current:
+            tokens.append(f"<spk:{label}>")
+            current = label
+        tokens.append(word)
+    return " ".join(tokens)
+
+
+def _stitch_speakers(left_text: str, right_text: str) -> str:
+    left = _stream(left_text)
+    right = _stream(right_text)
+    size = _overlap_size(left, right)
+    mapping, confidence = _assignment(left, right, size)
+    remainder = right[size:]
+    if mapping is None:
+        log.warning("speaker_join_uncertain", confidence=round(confidence, 2))
+        rest = _render(remainder, None, set())
+        marker = f"[speaker-join-uncertain {confidence:.2f}]"
+        if rest:
+            return f"{left_text}\n{marker}\n{rest}"
+        return f"{left_text}\n{marker}"
+    log.info("speaker_map", confidence=round(confidence, 2))
+    rest = _render(remainder, dict(mapping), set(_SPEAKER.findall(left_text)))
+    if not rest:
+        return left_text
+    return f"{left_text} {rest}".rstrip()

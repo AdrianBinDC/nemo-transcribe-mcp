@@ -42,7 +42,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
             "Returns the words as spoken, including fillers and repetitions. "
             "A long file is cut at a pause and sent one piece at a time. "
             "Pass speakers from 2 to 8 to repeat 10 seconds at each join. "
-            "Speaker numbers start over on every piece. "
+            "Speaker numbers are matched across those joins. "
             "Waits wait_seconds (default 25). If it is still running, returns a job id. "
             "Tell the user, then call get_job_status. Do not poll in a loop."
         ),

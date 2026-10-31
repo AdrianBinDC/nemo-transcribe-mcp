@@ -47,3 +47,35 @@ def test_stitch_drops_words_repeated_at_the_join() -> None:
 
 def test_stitch_keeps_a_newline_when_the_join_does_not_repeat() -> None:
     assert stitch_transcripts(["first piece.", "second piece."]) == "first piece.\nsecond piece."
+
+
+def test_speaker_tags_follow_the_same_voice_across_the_join() -> None:
+    first = stitch_transcripts(
+        [
+            "<spk:0> alpha bravo <spk:1> charlie delta",
+            "<spk:4> charlie delta <spk:5> echo foxtrot",
+        ]
+    )
+
+    assert first == "<spk:0> alpha bravo <spk:1> charlie delta <spk:2> echo foxtrot"
+
+    second = stitch_transcripts([first, "<spk:0> foxtrot <spk:1> golf"])
+
+    assert second == (
+        "<spk:0> alpha bravo <spk:1> charlie delta <spk:2> echo foxtrot <spk:3> golf"
+    )
+
+
+def test_an_uncertain_speaker_join_is_marked_and_not_remapped() -> None:
+    assert stitch_transcripts(["<spk:0> alpha bravo", "<spk:1> charlie delta"]) == (
+        "<spk:0> alpha bravo\n[speaker-join-uncertain 0.00]\n<spk:1> charlie delta"
+    )
+
+    tied = stitch_transcripts(
+        [
+            "<spk:0> alpha alpha",
+            "<spk:1> alpha <spk:2> alpha extra",
+        ]
+    )
+
+    assert tied == "<spk:0> alpha alpha\n[speaker-join-uncertain 0.00]\n<spk:2> extra"
