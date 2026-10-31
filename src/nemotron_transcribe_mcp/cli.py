@@ -1,14 +1,16 @@
 import json
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
 from mcp.server import MCPServer
 from platformdirs import user_data_dir
 
-from nemotron_transcribe_mcp.config import Config, load_config
+from nemotron_transcribe_mcp.config import Config, default_config_path, load_config
 from nemotron_transcribe_mcp.jobs import Jobs
 from nemotron_transcribe_mcp.logsetup import configure_logging, get_logger
 from nemotron_transcribe_mcp.prompts import prompts_version
+from nemotron_transcribe_mcp.setupcheck import run_doctor, run_init
 from nemotron_transcribe_mcp.transcribe import (
     IncompleteTranscript,
     prepare_pieces,
@@ -117,6 +119,14 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
 
 
 def main() -> None:
+    command = sys.argv[1] if len(sys.argv) > 1 else ""
+    if command == "init":
+        raise SystemExit(run_init(sys.argv[2:], config_path=default_config_path()))
+    if command == "doctor":
+        raise SystemExit(run_doctor(config_path=default_config_path()))
+    if command:
+        print("Use init, doctor, or no arguments for the server.", file=sys.stderr)
+        raise SystemExit(2)
     try:
         config = load_config()
     except ValueError as exc:
