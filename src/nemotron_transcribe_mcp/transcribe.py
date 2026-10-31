@@ -12,7 +12,7 @@ from nemotron_transcribe_mcp.audio import detect_silences, normalize_to_pcm, sli
 from nemotron_transcribe_mcp.config import Config
 from nemotron_transcribe_mcp.logsetup import get_logger
 from nemotron_transcribe_mcp.plan import Piece, plan_pieces, stitch_transcripts
-from nemotron_transcribe_mcp.prompts import verbatim_prompt
+from nemotron_transcribe_mcp.prompts import prompt_for
 from nemotron_transcribe_mcp.tokens import output_token_cap
 
 HARD_MAX_S = 3300
@@ -62,6 +62,7 @@ def _post_transcript(
     headers: dict[str, str],
     wav: bytes,
     duration_s: float,
+    style: str,
 ) -> str:
     payload = {
         "model": config.model,
@@ -69,7 +70,7 @@ def _post_transcript(
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": verbatim_prompt()},
+                    {"type": "text", "text": prompt_for(style)},
                     {
                         "type": "audio_url",
                         "audio_url": {
@@ -110,6 +111,7 @@ def _transcribe_span(
     label: str,
     *,
     can_split: bool,
+    style: str,
 ) -> str:
     dest = work / f"{label}.wav"
     slice_pcm(source, dest, start_s, end_s)
@@ -123,6 +125,7 @@ def _transcribe_span(
             headers,
             dest.read_bytes(),
             audio_s,
+            style,
         )
     except IncompleteTranscript:
         log.warning("request_cut_off", audio_s=round(audio_s, 3))
@@ -130,10 +133,30 @@ def _transcribe_span(
             raise
         mid_s = start_s + (end_s - start_s) / 2
         left = _transcribe_span(
-            client, config, url, headers, source, work, start_s, mid_s, f"{label}a", can_split=False
+            client,
+            config,
+            url,
+            headers,
+            source,
+            work,
+            start_s,
+            mid_s,
+            f"{label}a",
+            can_split=False,
+            style=style,
         )
         right = _transcribe_span(
-            client, config, url, headers, source, work, mid_s, end_s, f"{label}b", can_split=False
+            client,
+            config,
+            url,
+            headers,
+            source,
+            work,
+            mid_s,
+            end_s,
+            f"{label}b",
+            can_split=False,
+            style=style,
         )
         return stitch_transcripts([left, right])
     log.info(
@@ -174,6 +197,7 @@ def transcribe_prepared_span(
     *,
     config: Config,
     cancelled: threading.Event,
+    style: str = "verbatim",
 ) -> str:
     if cancelled.is_set():
         raise RuntimeError("aborted")
@@ -207,6 +231,7 @@ def transcribe_prepared_span(
                 end_s,
                 label,
                 can_split=True,
+                style=style,
             )
         except Exception:
             if cancelled.is_set():
@@ -223,6 +248,7 @@ def transcribe_file(
     transport: httpx.BaseTransport | None = None,
     hard_max_s: float = HARD_MAX_S,
     speakers: bool = False,
+    style: str = "verbatim",
 ) -> str:
     headers: dict[str, str] = {}
     if config.api_key:
@@ -245,6 +271,7 @@ def transcribe_file(
                     end_s,
                     f"piece{index}",
                     can_split=True,
+                    style=style,
                 )
                 for index, (start_s, end_s) in enumerate(spans)
             ]

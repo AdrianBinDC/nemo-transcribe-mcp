@@ -80,6 +80,36 @@ def test_short_file_returns_the_model_transcript(tmp_path: Path) -> None:
         assert sent.getnframes() == 16000
 
 
+def test_clean_style_asks_the_model_to_drop_fillers(tmp_path: Path) -> None:
+    source = tmp_path / "note.wav"
+    _one_second_wav(source)
+    seen: dict[str, httpx.Request] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["request"] = request
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {"role": "assistant", "content": "Hello from the booth."},
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+        )
+
+    transcribe_file(source, config=SPARK, transport=httpx.MockTransport(handler), style="clean")
+
+    body = json.loads(seen["request"].content)
+    assert body["messages"][0]["content"][0]["text"] == (
+        "Audio transcription. Language: as spoken. "
+        "Wording: omit fillers and accidental repetitions; keep the remaining spoken wording unchanged. "
+        "Formatting: punctuation and capitalization. "
+        "Output: transcript only."
+    )
+
+
 def test_length_finish_means_the_transcript_was_cut_off(tmp_path: Path) -> None:
     source = tmp_path / "note.wav"
     _one_second_wav(source)

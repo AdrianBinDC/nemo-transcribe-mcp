@@ -9,7 +9,7 @@ from platformdirs import user_data_dir
 from nemotron_transcribe_mcp.config import Config, default_config_path, load_config
 from nemotron_transcribe_mcp.jobs import Jobs
 from nemotron_transcribe_mcp.logsetup import configure_logging, get_logger
-from nemotron_transcribe_mcp.prompts import prompts_version
+from nemotron_transcribe_mcp.prompts import prompt_for, prompts_version
 from nemotron_transcribe_mcp.setupcheck import run_doctor, run_init
 from nemotron_transcribe_mcp.transcribe import (
     IncompleteTranscript,
@@ -35,13 +35,19 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
         ),
     )
 
-    def settings(speakers: int) -> dict[str, object]:
-        return {"speakers": speakers, "model": config.model, "prompts_version": prompts_version()}
+    def settings(speakers: int, style: str) -> dict[str, object]:
+        return {
+            "speakers": speakers,
+            "style": style,
+            "model": config.model,
+            "prompts_version": prompts_version(),
+        }
 
     @server.tool(
         description=(
             "Speech to text for one audio file. "
-            "Returns the words as spoken, including fillers and repetitions. "
+            "style verbatim, the default, keeps every word, including fillers. "
+            "style clean drops fillers and accidental repetitions and keeps the other words. "
             "A long file is cut at a pause and sent one piece at a time. "
             "Pass speakers from 2 to 8 to repeat 10 seconds at each join. "
             "Speaker numbers are matched across those joins. "
@@ -50,15 +56,18 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
         ),
         structured_output=False,
     )
-    def transcribe(path: str, speakers: int = 0, wait_seconds: float = 25) -> str:
+    def transcribe(path: str, speakers: int = 0, style: str = "verbatim", wait_seconds: float = 25) -> str:
         if speakers != 0 and not 2 <= speakers <= 8:
             raise ValueError("speakers must be from 2 to 8")
+        if style not in {"verbatim", "clean"}:
+            raise ValueError("style must be verbatim or clean")
         if wait_seconds < 0:
             raise ValueError("wait_seconds must be 0 or more")
+        prompt_for(style)
         try:
             outcome = jobs.transcribe(
                 Path(path).expanduser(),
-                settings(speakers),
+                settings(speakers, style),
                 wait_seconds=wait_seconds,
             )
         except IncompleteTranscript as exc:
@@ -148,6 +157,7 @@ def main() -> None:
                 end,
                 config=config,
                 cancelled=cancelled,
+                style=str(settings.get("style", "verbatim")),
             )
         except IncompleteTranscript as exc:
             raise RuntimeError(f"transcript was cut off: {exc.text}") from exc

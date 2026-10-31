@@ -15,8 +15,12 @@ def prompts_version() -> str:
     return str(_table()["prompts_version"])
 
 
-def verbatim_prompt() -> str:
+def prompt_for(style: str) -> str:
     for template in _table()["templates"]:
-        if template["id"] == "verbatim":
+        if template["id"] == style:
             return str(template["user"])
-    raise KeyError("verbatim prompt is missing from prompts.yaml")
+    raise KeyError(f"{style} prompt is missing from prompts.yaml")
+
+
+def verbatim_prompt() -> str:
+    return prompt_for("verbatim")
