@@ -4,71 +4,79 @@ Local [MCP](https://modelcontextprotocol.io) server that transcribes an audio fi
 
 Long files are cut at a pause, about every 55 minutes, and sent one piece at a time. Pass `speakers` from 2 to 8 to repeat 10 seconds at each join. Speaker numbers start over on every piece.
 
+This server writes a transcript. For timed subtitles (SRT or VTT), use another model. This checkpoint returns no word times.
+
 ## Languages
 
-The server detects the spoken language, and the source or destination language must be English.
+The server hears the language in the file.
+
+| From | To |
+| --- | --- |
+| Supported language | Same supported language |
+| Non-English Supported | English |
+| English | Non-English Supported |
 
 ### Leading
 
 State of the art, or close to it, out of the box.
 
-| Language | Flag | ISO 639-1 |
-| --- | --- | --- |
-| Czech | 🇨🇿 | `cs` |
-| Dutch | 🇳🇱 | `nl` |
-| English | 🇺🇸 | `en` |
-| French | 🇫🇷 | `fr` |
-| German | 🇩🇪 | `de` |
-| Hindi | 🇮🇳 | `hi` |
-| Italian | 🇮🇹 | `it` |
-| Korean | 🇰🇷 | `ko` |
-| Polish | 🇵🇱 | `pl` |
-| Portuguese | 🇧🇷 | `pt` |
-| Russian | 🇷🇺 | `ru` |
-| Slovak | 🇸🇰 | `sk` |
-| Spanish | 🇪🇸 | `es` |
+| Language | Flag | ISO 639-1 | Translate |
+| --- | --- | --- | --- |
+| Czech | 🇨🇿 | `cs` | Yes |
+| Dutch | 🇳🇱 | `nl` | Yes |
+| English | 🇺🇸 | `en` | Yes |
+| French | 🇫🇷 | `fr` | Yes |
+| German | 🇩🇪 | `de` | Yes |
+| Hindi | 🇮🇳 | `hi` | Yes |
+| Italian | 🇮🇹 | `it` | Yes |
+| Korean | 🇰🇷 | `ko` | Yes |
+| Polish | 🇵🇱 | `pl` | Yes |
+| Portuguese | 🇧🇷 | `pt` | Yes |
+| Russian | 🇷🇺 | `ru` | Yes |
+| Slovak | 🇸🇰 | `sk` | Yes |
+| Spanish | 🇪🇸 | `es` | Yes |
 
 ### Production-ready
 
 Production-level quality.
 
-| Language | Flag | ISO 639-1 |
-| --- | --- | --- |
-| Bulgarian | 🇧🇬 | `bg` |
-| Croatian | 🇭🇷 | `hr` |
-| Danish | 🇩🇰 | `da` |
-| Estonian | 🇪🇪 | `et` |
-| Finnish | 🇫🇮 | `fi` |
-| Hungarian | 🇭🇺 | `hu` |
-| Japanese | 🇯🇵 | `ja` |
-| Latvian | 🇱🇻 | `lv` |
-| Lithuanian | 🇱🇹 | `lt` |
-| Romanian | 🇷🇴 | `ro` |
-| Slovenian | 🇸🇮 | `sl` |
-| Swedish | 🇸🇪 | `sv` |
-| Thai | 🇹🇭 | `th` |
-| Turkish | 🇹🇷 | `tr` |
-| Ukrainian | 🇺🇦 | `uk` |
+| Language | Flag | ISO 639-1 | Translate |
+| --- | --- | --- | --- |
+| Bulgarian | 🇧🇬 | `bg` | Yes |
+| Croatian | 🇭🇷 | `hr` | Yes |
+| Danish | 🇩🇰 | `da` | Yes |
+| Estonian | 🇪🇪 | `et` | Yes |
+| Finnish | 🇫🇮 | `fi` | Yes |
+| Hungarian | 🇭🇺 | `hu` | Yes |
+| Japanese | 🇯🇵 | `ja` | Yes |
+| Latvian | 🇱🇻 | `lv` | Yes |
+| Lithuanian | 🇱🇹 | `lt` | Yes |
+| Romanian | 🇷🇴 | `ro` | Yes |
+| Slovenian | 🇸🇮 | `sl` | Yes |
+| Swedish | 🇸🇪 | `sv` | Yes |
+| Thai | 🇹🇭 | `th` | Yes |
+| Turkish | 🇹🇷 | `tr` | No |
+| Ukrainian | 🇺🇦 | `uk` | Yes |
 
 ### Supported
 
 Supported, and fine-tuning can help.
 
-| Language | Flag | ISO 639-1 |
-| --- | --- | --- |
-| Arabic | 🇪🇬 | `ar` |
-| Bengali | 🇧🇩 | `bn` |
-| Chinese | 🇨🇳 | `zh` |
-| Greek | 🇬🇷 | `el` |
-| Hebrew | 🇮🇱 | `he` |
-| Indonesian | 🇮🇩 | `id` |
-| Maltese | 🇲🇹 | `mt` |
-| Marathi | 🇮🇳 | `mr` |
-| Norwegian | 🇳🇴 | `no` |
-| Tagalog | 🇵🇭 | `tl` |
-| Tamil | 🇮🇳 | `ta` |
-| Telugu | 🇮🇳 | `te` |
-| Vietnamese | 🇻🇳 | `vi` |
+| Language | Flag | ISO 639-1 | Translate |
+| --- | --- | --- | --- |
+| Arabic | 🇪🇬 | `ar` | Yes |
+| Bengali | 🇧🇩 | `bn` | No |
+| Chinese | 🇨🇳 | `zh` | Yes |
+| Greek | 🇬🇷 | `el` | Yes |
+| Hebrew | 🇮🇱 | `he` | Yes |
+| Indonesian | 🇮🇩 | `id` | No |
+| Maltese | 🇲🇹 | `mt` | Yes |
+| Marathi | 🇮🇳 | `mr` | No |
+| Norwegian | 🇳🇴 | `no` | No |
+| Tagalog | 🇵🇭 | `tl` | No |
+| Tamil | 🇮🇳 | `ta` | No |
+| Telugu | 🇮🇳 | `te` | No |
+| Vietnamese | 🇻🇳 | `vi` | No |
 
 ## Requirements
 

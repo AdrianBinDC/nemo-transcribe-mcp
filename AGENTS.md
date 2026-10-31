@@ -16,7 +16,7 @@ Build from `docs/SPEC.md`. This repo is the MCP client. It does not load weights
 - `max_tokens = 65536 - ceil(seconds × 12.5) - pad`. This prompt was about 60 tokens. The test used a 512 pad as spare room. Do not send a fixed 16,384.
 - `finish_reason: length` means the transcript was cut off.
 - Speaker tags are `<spk:0>` … `<spk:7>`. Numbers start over on every request. The model does not write markdown.
-- Word times did not return here. The CTC middleware is loaded, but this checkpoint has no `adapter_path`, so a 200 with no `ctc_timestamps` is not word times.
+- Word times did not return here. The CTC middleware is loaded, but this checkpoint has no `adapter_path`, so a 200 with no `ctc_timestamps` is not word times. Do not write SRT or VTT. For subtitles, use another model.
 
 ## Long files
 
