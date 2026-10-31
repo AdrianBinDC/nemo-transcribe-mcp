@@ -4,16 +4,13 @@ import json
 import shutil
 import subprocess
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from urllib.parse import quote
 
 import httpx
 
-PROBE_URLS = (
-    "http://127.0.0.1:8010/v1",
-    "http://127.0.0.1:8000/v1",
-)
+from nemotron_transcribe_mcp.config import _environment
 
 
 def list_model_ids(base_url: str) -> list[str]:
@@ -80,17 +77,27 @@ def _saved(path: Path) -> tuple[str, str] | None:
     return None
 
 
+def _urls(explicit: str | None, environ: Mapping[str, str] | None) -> tuple[str, ...]:
+    if explicit:
+        return (explicit.rstrip("/"),)
+    configured = _environment(environ).get("NEMOTRON_BASE_URL", "").strip().rstrip("/")
+    if configured:
+        return (configured,)
+    return ()
+
+
 def run_init(
     argv: list[str],
     *,
     config_path: Path,
     list_models: Callable[[str], list[str]] = list_model_ids,
     ffmpeg_version: Callable[[], str | None] = ffmpeg_version,
+    environ: Mapping[str, str] | None = None,
 ) -> int:
     parser = argparse.ArgumentParser(prog="nemotron-transcribe-mcp init")
     parser.add_argument("--base-url")
     args = parser.parse_args(argv)
-    urls = (args.base_url.rstrip("/"),) if args.base_url else PROBE_URLS
+    urls = _urls(args.base_url, environ)
     found = _find(list_models, urls)
     if found is None:
         print("No Transcribe server found.")
@@ -117,6 +124,7 @@ def run_doctor(
     list_models: Callable[[str], list[str]] = list_model_ids,
     ffmpeg_version: Callable[[], str | None] = ffmpeg_version,
     base_url: str | None = None,
+    environ: Mapping[str, str] | None = None,
 ) -> int:
     saved = _saved(config_path)
     if base_url:
@@ -124,7 +132,7 @@ def run_doctor(
     elif saved:
         target = saved[0]
     else:
-        found = _find(list_models, PROBE_URLS)
+        found = _find(list_models, _urls(None, environ))
         if found is None:
             print("endpoint unreachable")
             print("Point at one: nemotron-transcribe-mcp init --base-url http://HOST:PORT/v1")

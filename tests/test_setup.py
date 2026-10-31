@@ -25,7 +25,13 @@ def _cursor_config(text: str) -> dict[str, object]:
 def test_init_saves_the_transcribe_server_and_prints_the_cursor_line(tmp_path: Path, capsys) -> None:
     path = tmp_path / "config.toml"
 
-    code = run_init([], config_path=path, list_models=_models, ffmpeg_version=lambda: "ffmpeg version 7")
+    code = run_init(
+        [],
+        config_path=path,
+        list_models=_models,
+        ffmpeg_version=lambda: "ffmpeg version 7",
+        environ={"NEMOTRON_BASE_URL": "http://127.0.0.1:8010/v1"},
+    )
 
     out = capsys.readouterr().out
     saved = path.read_text(encoding="utf-8")
@@ -42,7 +48,13 @@ def test_init_stops_when_no_transcribe_server_answers(tmp_path: Path, capsys) ->
     def down(base_url: str) -> list[str]:
         raise OSError(base_url)
 
-    code = run_init([], config_path=path, list_models=down, ffmpeg_version=lambda: "ffmpeg version 7")
+    code = run_init(
+        [],
+        config_path=path,
+        list_models=down,
+        ffmpeg_version=lambda: "ffmpeg version 7",
+        environ={},
+    )
 
     assert code == 1
     assert not path.exists()

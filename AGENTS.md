@@ -4,7 +4,7 @@ Build from `docs/SPEC.md`. This repo is the MCP client. It does not load weights
 
 ## This Spark
 
-- Transcribe server: `http://127.0.0.1:8010`
+- Transcribe server: `NEMOTRON_BASE_URL` in `.env`
 - Model: `nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4`
 - vLLM 0.32.0, context 65,536, `--max-num-seqs 1`
 - Port 8000 is a different model. Do not send audio there.
