@@ -1,5 +1,11 @@
 # Nemotron Transcribe MCP
 
+[![CI](https://github.com/AdrianBinDC/nemo-transcribe-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/AdrianBinDC/nemo-transcribe-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![MCP](https://img.shields.io/badge/MCP-server-111111.svg)](https://modelcontextprotocol.io)
+[![uv](https://img.shields.io/badge/packaging-uv-DE5FE9.svg)](https://docs.astral.sh/uv/)
+
 MCP server that exposes transcription tools over the [Model Context Protocol](https://modelcontextprotocol.io) and calls an already-running [Nemotron 3.5 Transcribe](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B) endpoint. It does not download weights or start the model.
 
 Long files are cut at a pause (~55 minutes) and sent one piece at a time. With `speakers` 2–8, joins overlap by 10 seconds and speaker tags are remapped across pieces. It also translates: same language → same language, or either direction with English on one side. A YouTube link is saved first, then handled like a file. This checkpoint returns no word times—use another model for SRT/VTT.
