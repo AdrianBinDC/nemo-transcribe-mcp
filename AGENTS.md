@@ -31,4 +31,4 @@ Build from `docs/SPEC.md`. This repo is the MCP client. It does not load weights
 
 ## Not built yet
 
-MCP package, stitching speakers across pieces, jobs, URLs, prompt files, init/doctor.
+MCP package, stitching speakers across pieces, jobs, sites other than YouTube, prompt files, init/doctor.

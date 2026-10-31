@@ -9,6 +9,7 @@ dependencies = [
     "platformdirs>=4",
     "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
+    "yt-dlp[default,deno]>=2026.10.26",
 ]
 
 [project.scripts]

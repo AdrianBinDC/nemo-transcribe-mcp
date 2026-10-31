@@ -4,7 +4,7 @@ Local [MCP](https://modelcontextprotocol.io) server that transcribes an audio fi
 
 Long files are cut at a pause, about every 55 minutes, and sent one piece at a time. Pass `speakers` from 2 to 8 to repeat 10 seconds at each join. Speaker numbers start over on every piece.
 
-This server writes a transcript. For timed subtitles (SRT or VTT), use another model. This checkpoint returns no word times.
+This server writes a transcript. A YouTube link is saved first, then handled like a file. For timed subtitles (SRT or VTT), use another model. This checkpoint returns no word times.
 
 ## Languages
 

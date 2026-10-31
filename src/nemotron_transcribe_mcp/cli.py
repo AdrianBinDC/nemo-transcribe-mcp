@@ -33,6 +33,7 @@ from nemotron_transcribe_mcp.transcribe import (
     prepare_pieces,
     transcribe_prepared_span,
 )
+from nemotron_transcribe_mcp.youtube import download_youtube, resolve_audio
 
 log = get_logger("server")
 
@@ -41,21 +42,33 @@ def jobs_db_path() -> Path:
     return Path(user_data_dir("nemotron-transcribe-mcp", ensure_exists=True)) / "jobs.db"
 
 
-def build_server(jobs: Jobs, config: Config) -> MCPServer:
+def build_server(jobs: Jobs, config: Config, fetch_youtube=None) -> MCPServer:
+    fetch = download_youtube if fetch_youtube is None else fetch_youtube
+
+    def audio_file(path: str) -> Path:
+        return resolve_audio(path, fetch)
+
     server = MCPServer(
         name="nemotron-transcribe",
         instructions=(
-            "Talks to an already-running Nemotron 3.5 Transcribe endpoint. "
-            "Does not start the model. Use transcribe for one audio file. "
-            "Use translate to write speech in another language. "
-            "source_language is the language spoken in the file. "
-            "target_language is the language the words should be written in. "
-            "One of those two must be English. "
-            "Use identify_language to name the spoken language. "
-            "Use list_languages to see each language and how strong the support is. "
-            "Use ask_about_audio to answer a question about a recording. English speech. "
-            "A long file returns a job id. Call get_job_status, then get_job_result. "
-            "Do not poll in a loop."
+            "Nemotron 3.5 Transcribe is already running. This server does not start the model. "
+            "Pass a file path or a YouTube link. "
+            "transcribe writes the words in the spoken language. "
+            "style verbatim keeps every word. clean drops fillers. "
+            "technical keeps emails, URLs, and commands exact. "
+            "raw_dictation drops punctuation and writes numbers as spoken words. "
+            "Pass speakers from 2 to 8 to mark who spoke. "
+            "translate writes the words in another language. "
+            "A supported language can stay that language. "
+            "A non-English supported language can be written in English. "
+            "English can be written in a non-English supported language. "
+            "identify_language names the spoken language from a short stretch of speech. "
+            "list_languages shows each language and how strong the support is. "
+            "ask_about_audio answers one question about English speech. "
+            "A long recording is cut at a pause and sent one piece at a time. "
+            "If the call is still running, it returns a job id. "
+            "Call get_job_status, then get_job_result. Do not poll in a loop. "
+            "This server writes a transcript. For SRT or VTT, use another model."
         ),
     )
 
@@ -69,7 +82,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
 
     @server.tool(
         description=(
-            "Speech to text for one audio file. "
+            "Speech to text for one audio file or one YouTube link. "
             "style verbatim, the default, keeps every word, including fillers. "
             "style clean drops fillers and accidental repetitions and keeps the other words. "
             "style technical keeps emails, URLs, file paths, commands, and IDs exactly. "
@@ -95,7 +108,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
         prompt_for(style)
         try:
             outcome = jobs.transcribe(
-                Path(path).expanduser(),
+                audio_file(path),
                 settings(speakers, style),
                 wait_seconds=wait_seconds,
             )
@@ -109,7 +122,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
 
     @server.tool(
         description=(
-            "Write the speech in one audio file in another language. "
+            "Write the speech in one audio file, or one YouTube link, in another language. "
             "source_language is the language spoken in the file, such as Polish or pl. "
             "target_language is the language the words should be written in, such as English or en. "
             "Pass both when you know them. "
@@ -144,7 +157,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
             fallback_source = config.source_language
         try:
             outcome = jobs.transcribe(
-                Path(path).expanduser(),
+                audio_file(path),
                 {
                     "speakers": 0,
                     "style": "translation",
@@ -168,7 +181,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
 
     @server.tool(
         description=(
-            "Answer a question about one audio file. "
+            "Answer a question about one audio file or one YouTube link. "
             "The model was checked on English speech. "
             "A recording longer than the reasoning budget is refused. "
             "Pass start and end, in seconds, for the part you want. "
@@ -190,7 +203,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
             raise ValueError("question is required")
         if wait_seconds < 0:
             raise ValueError("wait_seconds must be 0 or more")
-        audio = Path(path).expanduser()
+        audio = audio_file(path)
         start_s, end_s = question_span(media_duration_s(audio), start, end)
         try:
             outcome = jobs.transcribe(
@@ -218,7 +231,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
 
     @server.tool(
         description=(
-            "Say which language is spoken in one audio file. "
+            "Say which language is spoken in one audio file or one YouTube link. "
             "Returns one label, such as en_us. "
             "Listens to about 10 seconds of speech, skipping a pause at the start. "
             "Less reliable for Latvian and Slovenian. "
@@ -240,7 +253,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
         prompt = language_id_prompt(label_set, candidates)
         try:
             outcome = jobs.transcribe(
-                Path(path).expanduser(),
+                audio_file(path),
                 {
                     "speakers": 0,
                     "style": "language_id",
