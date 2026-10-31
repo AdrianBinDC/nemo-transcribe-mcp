@@ -1,6 +1,6 @@
 # Agents
 
-Build from `docs/SPEC.md`. This repo is the MCP client. It does not load weights or start vLLM.
+Build from `docs/SPEC.md`. This repo is an MCP server (HTTP client to the model). It does not load weights or start vLLM.
 
 ## This Spark
 
