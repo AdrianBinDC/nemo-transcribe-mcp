@@ -17,10 +17,18 @@ from nemotron_transcribe_mcp.languages import (
     translation_pair,
 )
 from nemotron_transcribe_mcp.logsetup import configure_logging, get_logger
-from nemotron_transcribe_mcp.prompts import language_id_prompt, prompt_for, prompts_version, translation_prompt
+from nemotron_transcribe_mcp.prompts import (
+    language_id_prompt,
+    prompt_for,
+    prompts_version,
+    system_for,
+    translation_prompt,
+)
 from nemotron_transcribe_mcp.setupcheck import run_doctor, run_init
+from nemotron_transcribe_mcp.tokens import question_span
 from nemotron_transcribe_mcp.transcribe import (
     IncompleteTranscript,
+    media_duration_s,
     prepare_language_clip,
     prepare_pieces,
     transcribe_prepared_span,
@@ -45,6 +53,7 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
             "One of those two must be English. "
             "Use identify_language to name the spoken language. "
             "Use list_languages to see each language and how strong the support is. "
+            "Use ask_about_audio to answer a question about a recording. English speech. "
             "A long file returns a job id. Call get_job_status, then get_job_result. "
             "Do not poll in a loop."
         ),
@@ -151,6 +160,56 @@ def build_server(jobs: Jobs, config: Config) -> MCPServer:
             )
         except IncompleteTranscript as exc:
             raise RuntimeError(f"transcript was cut off: {exc.text}") from exc
+        if isinstance(outcome, str):
+            return outcome
+        if outcome.get("state") == "failed":
+            raise RuntimeError(str(jobs.result(str(outcome["job_id"]))))
+        return json.dumps(outcome)
+
+    @server.tool(
+        description=(
+            "Answer a question about one audio file. "
+            "The model was checked on English speech. "
+            "A recording longer than the reasoning budget is refused. "
+            "Pass start and end, in seconds, for the part you want. "
+            "show_reasoning includes the model's reasoning before the answer. "
+            "Waits wait_seconds (default 25). If it is still running, returns a job id. "
+            "Tell the user, then call get_job_status. Do not poll in a loop."
+        ),
+        structured_output=False,
+    )
+    def ask_about_audio(
+        path: str,
+        question: str,
+        start: float | None = None,
+        end: float | None = None,
+        show_reasoning: bool = False,
+        wait_seconds: float = 25,
+    ) -> str:
+        if not question.strip():
+            raise ValueError("question is required")
+        if wait_seconds < 0:
+            raise ValueError("wait_seconds must be 0 or more")
+        audio = Path(path).expanduser()
+        start_s, end_s = question_span(media_duration_s(audio), start, end)
+        try:
+            outcome = jobs.transcribe(
+                audio,
+                {
+                    "speakers": 0,
+                    "style": "audio_qa",
+                    "prompt": question.strip(),
+                    "system": system_for("audio_qa"),
+                    "show_reasoning": show_reasoning,
+                    "start_s": start_s,
+                    "end_s": end_s,
+                    "model": config.model,
+                    "prompts_version": prompts_version(),
+                },
+                wait_seconds=wait_seconds,
+            )
+        except IncompleteTranscript as exc:
+            raise RuntimeError(f"answer was cut off: {exc.text}") from exc
         if isinstance(outcome, str):
             return outcome
         if outcome.get("state") == "failed":
@@ -300,6 +359,8 @@ def main() -> None:
     def plan(path: Path, settings: dict[str, object], work: Path) -> list[tuple[float, float]]:
         if settings.get("style") == "language_id":
             return prepare_language_clip(path, work, length_s=float(settings["clip_seconds"]))
+        if settings.get("style") == "audio_qa":
+            return [(float(settings["start_s"]), float(settings["end_s"]))]
         return prepare_pieces(path, work, speakers=int(settings["speakers"]) >= 2)
 
     def piece(path, settings, start, end, cancelled, work) -> str:
@@ -313,6 +374,9 @@ def main() -> None:
                 cancelled=cancelled,
                 style=str(settings.get("style", "verbatim")),
                 prompt=settings.get("prompt") if isinstance(settings.get("prompt"), str) else None,
+                system=settings.get("system") if isinstance(settings.get("system"), str) else None,
+                reasoning=settings.get("style") == "audio_qa",
+                show_reasoning=bool(settings.get("show_reasoning")),
             )
             if settings.get("style") == "language_id":
                 return language_id_note(text)

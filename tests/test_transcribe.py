@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import subprocess
+import threading
 import wave
 from pathlib import Path
 
@@ -11,7 +12,13 @@ import pytest
 
 from nemotron_transcribe_mcp.config import Config
 from nemotron_transcribe_mcp.plan import Silence
-from nemotron_transcribe_mcp.transcribe import IncompleteTranscript, prepare_clip, transcribe_file
+from nemotron_transcribe_mcp.transcribe import (
+    IncompleteTranscript,
+    answer_text,
+    prepare_clip,
+    transcribe_file,
+    transcribe_prepared_span,
+)
 
 SPARK = Config(
     base_url="http://127.0.0.1:8010/v1",
@@ -414,6 +421,62 @@ def test_a_cut_off_piece_is_split_and_sent_again(tmp_path: Path) -> None:
 
     assert text == "left half\nright half"
     assert len(calls) == 3
+
+
+def test_a_question_sends_the_reasoning_preset(tmp_path: Path) -> None:
+    source = tmp_path / "note.wav"
+    _one_second_wav(source)
+    seen: dict[str, httpx.Request] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["request"] = request
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "FedEx.",
+                            "reasoning_content": "The host says FedEx.",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+        )
+
+    text = transcribe_prepared_span(
+        source,
+        tmp_path,
+        0.0,
+        1.0,
+        config=SPARK,
+        cancelled=threading.Event(),
+        style="audio_qa",
+        prompt="Who is named?",
+        system="Answer the question directly.",
+        reasoning=True,
+        show_reasoning=False,
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert text == "FedEx."
+    body = json.loads(seen["request"].content)
+    assert body["temperature"] == 0.6
+    assert body["top_p"] == 0.95
+    assert body["max_tokens"] == 20480
+    assert body["top_k"] == -1
+    assert body["thinking_token_budget"] == 17408
+    assert body["chat_template_kwargs"] == {"enable_thinking": True, "reasoning_budget": 16384}
+    assert body["messages"][0] == {"role": "system", "content": "Answer the question directly."}
+    assert body["messages"][1]["content"][0]["text"] == "Who is named?"
+
+
+def test_show_reasoning_keeps_the_model_reasoning() -> None:
+    message = {"content": "FedEx.", "reasoning_content": "The host says FedEx."}
+    assert answer_text(message, show_reasoning=False) == "FedEx."
+    assert answer_text(message, show_reasoning=True) == "The host says FedEx.\n\nFedEx."
 
 
 def test_missing_file_names_the_path(tmp_path: Path) -> None:

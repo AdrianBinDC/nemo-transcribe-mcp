@@ -17,3 +17,5 @@ templates:
     user: "Identify the language spoken in this audio. Respond with exactly one of the following language labels and nothing else: ar, da, de, el, en, es, et, fi, fr, hr, hu, it, ja, lt, lv, nl, pl, pt, ru, sl, sv, tr, uk, zh."
   - id: language_id_candidates
     user: "Identify the spoken language. Respond with exactly one label from {labels} and nothing else."
+  - id: audio_qa
+    system: "Answer the question directly using evidence from every provided audio clip in order. Answer every requested part, preserve exact names and numbers, and give a concise, specific answer first. Do not invent details."

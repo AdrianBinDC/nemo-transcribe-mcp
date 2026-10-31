@@ -61,6 +61,7 @@ async def test_server_offers_a_transcribe_tool(tmp_path: Path) -> None:
         "translate",
         "identify_language",
         "list_languages",
+        "ask_about_audio",
         "get_job_status",
         "get_job_result",
         "list_jobs",

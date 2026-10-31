@@ -1,6 +1,7 @@
 import json
 import threading
 import time
+import wave
 from pathlib import Path
 
 import pytest
@@ -298,6 +299,52 @@ async def test_translate_rejects_two_non_english_languages(tmp_path: Path) -> No
     assert str(raised.value.__cause__) == (
         "Polish to Thai is not supported. The source or destination must be English."
     )
+    jobs.close()
+
+
+@pytest.mark.anyio
+async def test_ask_about_audio_requires_a_question(tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(0.0, 1.0)],
+        transcribe_piece=lambda path, settings, start, end, cancelled, work: "nope",
+    )
+    server = build_server(jobs, _config())
+    with pytest.raises(Exception) as raised:
+        await server.call_tool("ask_about_audio", {"path": str(audio), "question": "  "})
+    assert str(raised.value.__cause__) == "question is required"
+    jobs.close()
+
+
+@pytest.mark.anyio
+async def test_ask_about_audio_sends_the_question(tmp_path: Path) -> None:
+    source = tmp_path / "note.wav"
+    with wave.open(str(source), "w") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(16000)
+        handle.writeframes(b"\x00\x00" * 16000)
+    seen: list[dict[str, object]] = []
+
+    def piece(path, settings, start, end, cancelled, work) -> str:
+        seen.append(settings)
+        return "FedEx"
+
+    jobs = Jobs(
+        tmp_path / "jobs.db",
+        plan=lambda path, settings, work: [(float(settings["start_s"]), float(settings["end_s"]))],
+        transcribe_piece=piece,
+    )
+    server = build_server(jobs, _config())
+    answer = await server.call_tool(
+        "ask_about_audio",
+        {"path": str(source), "question": "Who is named?", "wait_seconds": 2},
+    )
+    assert _text(answer) == "FedEx"
+    assert seen[0]["style"] == "audio_qa"
+    assert seen[0]["prompt"] == "Who is named?"
+    assert seen[0]["start_s"] == 0.0
     jobs.close()
 
 

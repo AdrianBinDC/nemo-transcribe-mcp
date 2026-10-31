@@ -15,6 +15,13 @@ def prompts_version() -> str:
     return str(_table()["prompts_version"])
 
 
+def system_for(style: str) -> str:
+    for template in _table()["templates"]:
+        if template["id"] == style:
+            return str(template.get("system") or "")
+    raise KeyError(f"{style} prompt is missing from prompts.yaml")
+
+
 def prompt_for(style: str) -> str:
     for template in _table()["templates"]:
         if template["id"] == style:
