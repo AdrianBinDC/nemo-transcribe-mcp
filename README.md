@@ -6,175 +6,132 @@
 [![MCP](https://img.shields.io/badge/MCP-server-111111.svg)](https://modelcontextprotocol.io)
 [![uv](https://img.shields.io/badge/packaging-uv-DE5FE9.svg)](https://docs.astral.sh/uv/)
 
-MCP server that exposes transcription tools over the [Model Context Protocol](https://modelcontextprotocol.io) and calls an already-running [Nemotron 3.5 Transcribe](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B) endpoint. It does not download weights or start the model.
+An [MCP](https://modelcontextprotocol.io) server for NVIDIA's [Nemotron 3.5 Transcribe](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B). It gives an agent tools for transcription, speaker labels on multi-hour recordings, translation, language identification, and questions about audio.
 
-Long files are cut at a pause (~55 minutes) and sent one piece at a time. With `speakers` 2–8, joins overlap by 10 seconds and speaker tags are remapped across pieces. It also translates: same language → same language, or either direction with English on one side. A YouTube link is saved first, then handled like a file. This checkpoint returns no word times—use another model for SRT/VTT.
+It talks to a vLLM endpoint you already run. Audio stays on your machine or LAN.
 
-## Why this stack
+```text
+You:   Transcribe ~/audio/team-offsite.m4a and label who's talking.
+Agent: transcribe(path, speakers=2) -> job id -> get_job_status -> get_job_result
 
-- Your endpoint, your network: audio stays on your machine or LAN
-- Long-form + speaker tags (`<spk:0>`…`<spk:7>`), pause-aware chunking
-- Translation via `translate`: stay in-language, or English ↔ supported language
-- Agent-ready MCP tools (Cursor, Hermes)—not a one-off script
+You:   Between minutes 40 and 55, what did they decide about the launch date?
+Agent: ask_about_audio(path, question, start=2400, end=3300)
+```
+
+## Why a server and not a script
+
+Nemotron 3.5 Transcribe is a language model with speech and speaker encoders attached (34B parameters, about 4.3B active). One chat endpoint handles every task, and the prompt picks which one. Each task needs different prompts, sampling, and token limits, and a request can hold only about an hour of audio. This server handles that so the agent doesn't have to.
+
+| Task | Model constraint | What the server does |
+| --- | --- | --- |
+| Transcription | Prompt wording sets the style | Four styles from versioned prompt templates |
+| Speaker labels | Tags up to 8 speakers, but numbering restarts every request | Matches labels across chunks |
+| Long audio | About 1 hour per request | Splits at pauses into ≤55 min pieces, then joins them |
+| Translation | English must be one side | Checks the pair; detects the source language if not given |
+| Language ID | Fixed label set | Samples 10 s of speech, skipping leading silence |
+| Audio Q&A | Reasoning mode, 16,384-token budget | Uses the card's reasoning settings; rejects spans over ~22 min |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  AIClient[AI_client] --> MCPServer[nemo_transcribe_mcp]
-  MCPServer --> Nemotron[Nemotron_endpoint]
+  subgraph server["nemo-transcribe-mcp"]
+    Tools["Tools"] --> Jobs["Job queue (SQLite)"]
+    Jobs --> Planner["ffmpeg + chunking"]
+    Planner --> Client["Requests"]
+    Client --> Stitcher["Stitching + speaker matching"]
+  end
+  Agent["MCP client"] -->|"stdio or HTTP"| Tools
+  Client -->|"chat/completions"| Model["vLLM: Nemotron 3.5 Transcribe"]
 ```
 
-## MCP Tools
+## How it works
+
+**Long files.** Audio is converted to 16 kHz mono PCM. Files over 55 minutes are cut at the longest pause near the end of each window. If there is no pause, the next piece starts 5 seconds early so no words are lost. Repeated words at each join are removed.
+
+**Speakers across chunks.** The model tells up to eight speakers apart on its own and tags each turn in the transcript:
+
+```text
+<spk:0> Okay, let's start with the launch date.
+<spk:1> I'd push it a week. QA needs more time.
+<spk:0> Agreed. Let's say the fourteenth.
+```
+
+It numbers speakers from 0 on every request, though. With speaker labels on, each piece overlaps the previous one by 10 seconds. The overlapping words show which new label matches which old one. If the match is weak (under 60% agreement) or ambiguous, the transcript gets a `[speaker-join-uncertain]` marker instead of a guess.
+
+**Token limits.** Audio costs 12.5 tokens per second, so `max_tokens` is set to whatever the 65,536-token context has left. If the output is still cut off, that span is split in half and retried.
+
+**Jobs.** Long work runs in the background. Each tool waits up to `wait_seconds` (default 25), then returns a job id and a note telling the agent what to do next. Jobs are stored in SQLite. Repeat requests return the cached result, an interrupted job picks up where it stopped when asked again, and results can be read in pages.
+
+Also: stdio and HTTP transports (HTTP uses a bearer token), JSON logs with secrets redacted, `init` and `doctor` setup commands, and 112 tests that run without a GPU.
+
+## Results
+
+NVFP4 checkpoint on a DGX Spark (GB10), vLLM 0.32.0:
+
+- A 2 h 47 min podcast with speaker labels took about 18 minutes (about 9× real time).
+- The same sentence from a 5-minute business-news clip:
+
+| Call | Output |
+| --- | --- |
+| `transcribe`, `verbatim` | That's according to earnings calls this week at both UPS and Fed Ex, some of the biggest players in this space |
+| `transcribe`, `raw_dictation` | that's according to earnings calls this week at both ups and fedex some of the biggest players in this space |
+| `translate` to French | Selon les conférences téléphoniques sur les résultats de cette semaine chez UPS et FedEx, deux des acteurs les plus importants dans ce secteur |
+| `identify_language` | `en_us` |
+
+## Tools
 
 | Tool | Inputs | Returns |
 | --- | --- | --- |
-| `transcribe` | `path`, `speakers` 0 or 2–8, `style`, `wait_seconds` | transcript text, or job JSON if still running |
-| `translate` | `path`, source/target language, `wait_seconds` | translation text or job JSON |
-| `ask_about_audio` | `path`, `question`, optional span | answer or job JSON |
-| `identify_language` | `path`, optional candidates | language label |
-| `list_languages` | — | JSON language matrix |
-| `get_job_status` | `job_id`, `wait_seconds` | status JSON |
-| `get_job_result` | `job_id`, optional `offset`/`limit` | transcript text slice |
-| `list_jobs` | optional `state`, `limit` | job list JSON |
-| `cancel_job` | `job_id` | cancel ack JSON |
+| `transcribe` | `path`, `speakers` (0 or 2–8), `style` | Transcript or job id |
+| `translate` | `path`, `target_language`, optional `source_language` | Translation or job id |
+| `ask_about_audio` | `path`, `question`, optional `start`/`end` | Answer or job id |
+| `identify_language` | `path`, optional `candidates` | Label such as `en_us` |
+| `list_languages` | | Language matrix |
+| `get_job_status` | `job_id` | Status |
+| `get_job_result` | `job_id`, optional `offset`/`limit` | Result text |
+| `list_jobs` | optional `state` | Recent jobs |
+| `cancel_job` | `job_id` | Status |
 
-Sample call:
+`path` can be a local file or a YouTube link. Any `speakers` value from 2 to 8 turns on speaker matching across pieces; the model finds the actual speakers itself.
+
+Styles: `verbatim` (default) keeps fillers. `clean` drops fillers and repeats. `technical` keeps emails, URLs, paths, and IDs exact. `raw_dictation` has no punctuation and spells out numbers.
+
+## Setup
+
+You need a running Nemotron 3.5 Transcribe endpoint (see the [model card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B) for `vllm serve`). Settings go in `.env`; [`.env.example`](.env.example) documents each one.
+
+### Local (stdio)
+
+Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and `ffmpeg`.
+
+```bash
+uv sync
+cp .env.example .env               # set NEMOTRON_BASE_URL
+uv run nemo-transcribe-mcp doctor  # checks endpoint, model, ffmpeg
+```
+
+Cursor config, run from this directory:
 
 ```json
 {
-  "name": "transcribe",
-  "arguments": {
-    "path": "/data/audio/episode.m4a",
-    "speakers": 4,
-    "style": "clean"
+  "mcpServers": {
+    "nemo-transcribe": { "command": "uv", "args": ["run", "nemo-transcribe-mcp"] }
   }
 }
 ```
 
-`style` is `verbatim` (default), `clean`, `technical`, or `raw_dictation`. Long work returns a job id after `wait_seconds` (default 25); use `get_job_status` / `get_job_result`—do not poll in a tight loop.
-
-## How it registers
-
-```python
-server = MCPServer(name="nemo-transcribe", instructions="...")
-
-
-@server.tool(description="Speech to text for one audio file or one YouTube link. ...")
-def transcribe(
-    path: str, speakers: int = 0, style: str = "verbatim", wait_seconds: float = 25
-) -> str: ...
-```
-
-Typed tool args come from the Python signatures; the client sees them as the MCP input schema.
-
-## Languages
-
-The server hears the language in the file.
-
-| From | To |
-| --- | --- |
-| Supported language | Same supported language |
-| Non-English Supported | English |
-| English | Non-English Supported |
-
-### Leading
-
-State of the art, or close to it, out of the box.
-
-| Language | Flag | ISO 639-1 | Translate |
-| --- | --- | --- | --- |
-| Czech | 🇨🇿 | `cs` | Yes |
-| Dutch | 🇳🇱 | `nl` | Yes |
-| English | 🇺🇸 | `en` | Yes |
-| French | 🇫🇷 | `fr` | Yes |
-| German | 🇩🇪 | `de` | Yes |
-| Hindi | 🇮🇳 | `hi` | Yes |
-| Italian | 🇮🇹 | `it` | Yes |
-| Korean | 🇰🇷 | `ko` | Yes |
-| Polish | 🇵🇱 | `pl` | Yes |
-| Portuguese | 🇧🇷 | `pt` | Yes |
-| Russian | 🇷🇺 | `ru` | Yes |
-| Slovak | 🇸🇰 | `sk` | Yes |
-| Spanish | 🇪🇸 | `es` | Yes |
-
-### Production-ready
-
-Production-level quality.
-
-| Language | Flag | ISO 639-1 | Translate |
-| --- | --- | --- | --- |
-| Bulgarian | 🇧🇬 | `bg` | Yes |
-| Croatian | 🇭🇷 | `hr` | Yes |
-| Danish | 🇩🇰 | `da` | Yes |
-| Estonian | 🇪🇪 | `et` | Yes |
-| Finnish | 🇫🇮 | `fi` | Yes |
-| Hungarian | 🇭🇺 | `hu` | Yes |
-| Japanese | 🇯🇵 | `ja` | Yes |
-| Latvian | 🇱🇻 | `lv` | Yes |
-| Lithuanian | 🇱🇹 | `lt` | Yes |
-| Romanian | 🇷🇴 | `ro` | Yes |
-| Slovenian | 🇸🇮 | `sl` | Yes |
-| Swedish | 🇸🇪 | `sv` | Yes |
-| Thai | 🇹🇭 | `th` | Yes |
-| Turkish | 🇹🇷 | `tr` | No |
-| Ukrainian | 🇺🇦 | `uk` | Yes |
-
-### Supported
-
-Supported, and fine-tuning can help.
-
-| Language | Flag | ISO 639-1 | Translate |
-| --- | --- | --- | --- |
-| Arabic | 🇪🇬 | `ar` | Yes |
-| Bengali | 🇧🇩 | `bn` | No |
-| Chinese | 🇨🇳 | `zh` | Yes |
-| Greek | 🇬🇷 | `el` | Yes |
-| Hebrew | 🇮🇱 | `he` | Yes |
-| Indonesian | 🇮🇩 | `id` | No |
-| Maltese | 🇲🇹 | `mt` | Yes |
-| Marathi | 🇮🇳 | `mr` | No |
-| Norwegian | 🇳🇴 | `no` | No |
-| Tagalog | 🇵🇭 | `tl` | No |
-| Tamil | 🇮🇳 | `ta` | No |
-| Telugu | 🇮🇳 | `te` | No |
-| Vietnamese | 🇻🇳 | `vi` | No |
-
-## Requirements
-
-- An already-running Nemotron 3.5 Transcribe endpoint (this repo does not start the model)
-- Docker Compose **or** Python 3.12+, [uv](https://docs.astral.sh/uv/), and `ffmpeg`/`ffprobe` on your `PATH`
-
-Settings live in `.env` (copy from `.env.example`). Names and defaults are documented there once. Compose and the app only read those names.
-
-## Docker (home)
-
-One path: Compose starts the MCP; Hermes connects over HTTP.
-
-1. Copy settings and edit them:
+### Docker (HTTP)
 
 ```bash
-cp .env.example .env
-```
-
-Set at least:
-
-- `NEMOTRON_BASE_URL=http://host.docker.internal:8010/v1` (model on the same machine; use `127.0.0.1` only without Docker)
-- `MCP_AUTH_TOKEN=` to a long random string
-
-`.env` is **not** copied into the image. Compose reads it on the host and injects the values when the container starts (`env_file` in `compose.yaml`).
-
-2. Start / stop:
-
-```bash
+cp .env.example .env   # set NEMOTRON_BASE_URL and MCP_AUTH_TOKEN
 docker compose up -d --build
-docker compose logs -f mcp
-docker compose down
+curl -s http://127.0.0.1:8083/healthz
 ```
 
-Image name: `nemo-transcribe-mcp:0.1.0`. MCP listens inside the container on port `8080` and is published on the host as `127.0.0.1:8083` by default (`MCP_HOST_PORT`).
+The MCP endpoint is `http://127.0.0.1:8083/mcp` with `Authorization: Bearer <MCP_AUTH_TOKEN>`. Put audio in `./audio` and pass it as `/data/audio/<file>`. For a model on the same host, use `host.docker.internal` in `NEMOTRON_BASE_URL`, not `localhost`.
 
-3. Hermes (`~/.hermes/config.yaml`):
+Hermes example (`~/.hermes/config.yaml`):
 
 ```yaml
 mcp_servers:
@@ -183,57 +140,88 @@ mcp_servers:
     headers:
       Authorization: "Bearer YOUR_TOKEN_FROM_ENV"
     timeout: 300
-    connect_timeout: 60
 ```
 
-4. Audio: put files in `./audio` on the host. Ask Hermes to use `/data/audio/your-file.m4a` (that is the path inside the container).
+## Languages
 
-5. If the MCP cannot reach the model: inside Docker, `localhost` means the container. Prefer `host.docker.internal` for a model on the same host.
+The model card rates 40 languages. Norwegian is also listed below; the card tested it but didn't rate it. Any of them can be transcribed. Translation needs English on one side.
 
-Check the process is up: `curl -s http://127.0.0.1:8083/healthz`
+<details>
+<summary>Language matrix</summary>
 
-## Without Docker
+**Leading**
 
-```bash
-uv sync
-cp .env.example .env
-```
+| Language | | Code | Translate |
+| --- | --- | --- | --- |
+| Czech | 🇨🇿 | `cs` | ✅ |
+| Dutch | 🇳🇱 | `nl` | ✅ |
+| English | 🇺🇸 | `en` | ✅ |
+| French | 🇫🇷 | `fr` | ✅ |
+| German | 🇩🇪 | `de` | ✅ |
+| Hindi | 🇮🇳 | `hi` | ✅ |
+| Italian | 🇮🇹 | `it` | ✅ |
+| Korean | 🇰🇷 | `ko` | ✅ |
+| Polish | 🇵🇱 | `pl` | ✅ |
+| Portuguese | 🇧🇷 | `pt` | ✅ |
+| Russian | 🇷🇺 | `ru` | ✅ |
+| Slovak | 🇸🇰 | `sk` | ✅ |
+| Spanish | 🇪🇸 | `es` | ✅ |
 
-Edit `.env` and set `NEMOTRON_BASE_URL` (for a local process, `http://127.0.0.1:8010/v1` is fine). Leave `MCP_TRANSPORT=stdio`.
+**Production-ready**
 
-```bash
-uv run nemo-transcribe-mcp
-```
+| Language | | Code | Translate |
+| --- | --- | --- | --- |
+| Bulgarian | 🇧🇬 | `bg` | ✅ |
+| Croatian | 🇭🇷 | `hr` | ✅ |
+| Danish | 🇩🇰 | `da` | ✅ |
+| Estonian | 🇪🇪 | `et` | ✅ |
+| Finnish | 🇫🇮 | `fi` | ✅ |
+| Hungarian | 🇭🇺 | `hu` | ✅ |
+| Japanese | 🇯🇵 | `ja` | ✅ |
+| Latvian | 🇱🇻 | `lv` | ✅ |
+| Lithuanian | 🇱🇹 | `lt` | ✅ |
+| Romanian | 🇷🇴 | `ro` | ✅ |
+| Slovenian | 🇸🇮 | `sl` | ✅ |
+| Swedish | 🇸🇪 | `sv` | ✅ |
+| Thai | 🇹🇭 | `th` | ✅ |
+| Turkish | 🇹🇷 | `tr` | ❌ |
+| Ukrainian | 🇺🇦 | `uk` | ✅ |
 
-Log lines go to stderr. Default format is one JSON object per line. Set `NEMOTRON_LOG_FORMAT=text` for a plain line in a terminal.
+**Supported** (may need fine-tuning)
 
-Cursor can launch it from this directory:
+| Language | | Code | Translate |
+| --- | --- | --- | --- |
+| Arabic | 🇪🇬 | `ar` | ✅ |
+| Bengali | 🇧🇩 | `bn` | ❌ |
+| Chinese | 🇨🇳 | `zh` | ✅ |
+| Greek | 🇬🇷 | `el` | ✅ |
+| Hebrew | 🇮🇱 | `he` | ✅ |
+| Indonesian | 🇮🇩 | `id` | ❌ |
+| Maltese | 🇲🇹 | `mt` | ✅ |
+| Marathi | 🇮🇳 | `mr` | ❌ |
+| Norwegian | 🇳🇴 | `no` | ❌ |
+| Tagalog | 🇵🇭 | `tl` | ❌ |
+| Tamil | 🇮🇳 | `ta` | ❌ |
+| Telugu | 🇮🇳 | `te` | ❌ |
+| Vietnamese | 🇻🇳 | `vi` | ❌ |
 
-```json
-{
-  "mcpServers": {
-    "nemo-transcribe": {
-      "command": "uv",
-      "args": ["run", "nemo-transcribe-mcp"]
-    }
-  }
-}
-```
+Language ID is weaker for Latvian and Slovenian and unavailable for Bengali, Marathi, Norwegian, Tamil, and Telugu. Audio Q&A was only evaluated in English.
 
-Ask the client to transcribe a file path (tool: `transcribe`).
+</details>
 
-## Tests and lint
+## Limitations
+
+- No word timestamps yet, so no SRT/VTT. The model can return per-word times and diarization segments, but this server doesn't request them yet.
+- Not yet exposed: vocabulary hints, nearest-speaker-only transcription, PII tagging.
+- Inputs are local files and YouTube links.
+- One job runs at a time.
+
+## Development
 
 ```bash
 uv run pytest
-uv run ruff check .
-uv run ruff format --check .
-npm install
-npm run check:yaml
+uv run ruff check . && uv run ruff format --check .
+npm install && npm run check:yaml
 ```
 
-Ruff covers Python. Prettier covers YAML (`compose.yaml`, `prompts.yaml`, `languages.yaml`).
-
-The same checks run in GitHub Actions on every pull request (workflow: `.github/workflows/ci.yml`).
-
-The tests do not call a model. They do need `ffmpeg` and `ffprobe`.
+Tests need `ffmpeg` but not a model. CI runs the same checks on every pull request.
