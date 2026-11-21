@@ -7,6 +7,6 @@
     "check:yaml": "prettier --check \"**/*.{yaml,yml}\""
   },
   "devDependencies": {
-    "prettier": "^3.6.2"
+    "prettier": "^3.10.1"
   }
 }
